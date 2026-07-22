@@ -32,21 +32,15 @@ jobs:
           token: ${{ secrets.EXPO_TOKEN }}
 
       - name: Build Android APK
-        run: npx eas build --platform android --profile ${{ github.event.inputs.profile }} --non-interactive --no-wait
+        run: npx eas build --platform android --profile ${{ github.event.inputs.profile }} --non-interactive
 
       - name: Download APK
         run: |
-          npx eas build:list --platform android --status FINISHED --limit 1 --json > builds.json
-          BUILD_URL=$(node -e "const builds=require('./builds.json'); console.log(builds[0]?.artifacts?.applicationArchiveUrl || '')")
-          if [ -n "$BUILD_URL" ]; then
-            echo "APK_URL=$BUILD_URL" >> $GITHUB_ENV
-            curl -L -o essay-reader.apk "$BUILD_URL"
-          else
-            echo "Build not finished yet. Check https://expo.dev for progress."
-          fi
+          echo "APK will be available at: https://expo.dev/accounts/liuweiqing/projects/essay-reader/builds"
 
       - uses: actions/upload-artifact@v4
+        if: false
         with:
           name: essay-reader-apk
           path: essay-reader.apk
-          retention-days: 30
+          retention-days: 7
