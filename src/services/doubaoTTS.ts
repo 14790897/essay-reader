@@ -86,11 +86,17 @@ export class DoubaoTTSClient {
 
         const url = 'wss://openspeech.bytedance.com/api/v3/tts/bidirection';
 
-        // React Native WebSocket does support custom headers via a different API.
-        // We pass them as the third argument.
-        this.ws = new WebSocket(url);
+        // Pass API key & resource ID as custom headers for Volcano auth.
+        // RN 0.86+ supports headers in the options argument; TS types lag behind.
+        // eslint-disable-next-line
+        this.ws = new (WebSocket as any)(url, undefined, {
+          headers: {
+            'X-Api-Key': this.config.apiKey,
+            'X-Api-Resource-Id': this.config.resourceId || 'seed-tts-2.0',
+          },
+        });
 
-        this.ws.onopen = () => {
+        this.ws!.onopen = () => {
           // Step 1: StartConnection
           this.send({
             event: EventType.StartConnection,
@@ -100,7 +106,7 @@ export class DoubaoTTSClient {
           });
         };
 
-        this.ws.onmessage = (event: any) => {
+        this.ws!.onmessage = (event: any) => {
           if (typeof event.data === 'string') {
             const msg = JSON.parse(event.data);
             this.handleMessage(msg, text, speaker, options, resolve, reject);
@@ -109,13 +115,13 @@ export class DoubaoTTSClient {
           }
         };
 
-        this.ws.onerror = (error: any) => {
+        this.ws!.onerror = (error: any) => {
           const err = new Error(`WebSocket error: ${error.message || 'unknown'}`);
           this.onError?.(err);
           reject(err);
         };
 
-        this.ws.onclose = () => {
+        this.ws!.onclose = () => {
           if (this.audioChunks.length === 0) {
             reject(new Error('No audio received'));
           }

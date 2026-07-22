@@ -1,0 +1,52 @@
+name: Android Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: "Build profile"
+        required: true
+        type: choice
+        default: "preview"
+        options:
+          - preview
+          - production
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Setup EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Build Android APK
+        run: npx eas build --platform android --profile $${{ github.event.inputs.profile }} --non-interactive --no-wait
+
+      - name: Download APK
+        run: |
+          npx eas build:list --platform android --status FINISHED --limit 1 --json > builds.json
+          BUILD_URL=$(node -e "const builds=require('./builds.json'); console.log(builds[0]?.artifacts?.applicationArchiveUrl || '')")
+          if [ -n "$BUILD_URL" ]; then
+            echo "APK_URL=$BUILD_URL" >> $GITHUB_ENV
+            curl -L -o essay-reader.apk "$BUILD_URL"
+          else
+            echo "Build not finished yet. Check https://expo.dev for progress."
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: essay-reader-apk
+          path: essay-reader.apk
+          retention-days: 30
