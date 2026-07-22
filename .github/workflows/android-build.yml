@@ -32,8 +32,8 @@ jobs:
           token: ${{ secrets.EXPO_TOKEN }}
 
       - name: Build Android APK
-        run: npx eas build --platform android --profile ${{ github.event.inputs.profile }} --non-interactive
-
+        run: eas build --platform android --profile ${{ github.event.inputs.profile }} --non-interactive
+ 
       - name: Download APK
         run: |
           echo "APK will be available at: https://expo.dev/accounts/liuweiqing/projects/essay-reader/builds"
