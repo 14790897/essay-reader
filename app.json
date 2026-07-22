@@ -6,7 +6,6 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "owner": "14790897",
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.essayreader.app"
@@ -26,8 +25,9 @@
     },
     "extra": {
       "eas": {
-        "projectId": "ea275cd3-65e5-4f0c-ab9a-8cc989f55c8e"
+        "projectId": "0996df39-b743-49cd-bcf9-40dd616f83fc"
       }
-    }
+    },
+    "owner": "liuweiqing"
   }
 }
