@@ -1,0 +1,40 @@
+- Fetching the build…
+√ Found a matching build for the project @liuweiqing/essay-reader
+{
+  "id": "8783abb0-9564-4947-9a18-fbd2d63332dc",
+  "status": "IN_PROGRESS",
+  "platform": "ANDROID",
+  "artifacts": {},
+  "fingerprint": {
+    "id": "019f89e4-e369-7095-a5f9-499d54a21d4d",
+    "hash": "307cd021cd4b4665c214805f32eb889795b9f2e8"
+  },
+  "initiatingActor": {
+    "id": "f7556283-b30b-4efb-a128-b315b56cee6a",
+    "displayName": "liuweiqing"
+  },
+  "logFiles": [
+    "https://storage.googleapis.com/eas-workflows-production/logs/0996df39-b743-49cd-bcf9-40dd616f83fc/8783abb0-9564-4947-9a18-fbd2d63332dc/2026-07-22T13%3A58%3A52Z-5e3d3061-a18f-4967-9afd-f12bf8eb729d.txt?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=www-production%40exponentjs.iam.gserviceaccount.com%2F20260722%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20260722T135902Z&X-Goog-Expires=900&X-Goog-SignedHeaders=host&X-Goog-Signature=538bba95d25e7565524ed5c8958107db3fd60a30bf8ff19f51a3a75c52b17b051664a8fb6a24caa77d27f1e34f650f8406412219c95da15aed2fbfa448b9fbbec6b4aeeca9b56132f51d996826e9c47d3d7cb734995cc3ba99613f728df784af86b2a5a03043ff8847f72737d2a38658a5c49c26e237c757d896cdf4a3a5254709d458612ccbf24c7ac696dded87d7b91db0f9dd1f783b6f56d1e9871c59b22cb00fd06d149a9ca0655b5d151c20cce9a77c1aba698dfb24c5d8f423f87b3c9b4ee1217758f4e94d70a2caaf82cdf055ad83e6a98e94543c23d033b5d92c9b8b9e1c86f0b9f7ceade71fd5f45634c422781db46163f4bbd94d1b1c674022fad9"
+  ],
+  "project": {
+    "id": "0996df39-b743-49cd-bcf9-40dd616f83fc",
+    "name": "essay-reader",
+    "slug": "essay-reader",
+    "ownerAccount": {
+      "id": "d04806c6-bcc0-42a8-969c-7e0314f33c26",
+      "name": "liuweiqing"
+    }
+  },
+  "distribution": "INTERNAL",
+  "buildProfile": "preview",
+  "sdkVersion": "57.0.0",
+  "appVersion": "1.0.0",
+  "appBuildVersion": "1",
+  "gitCommitHash": "6581e16ae25fc4a383f071ee9ce842c10a2509ed",
+  "gitCommitMessage": "fix: remove eas-cli from dependencies, sync lockfile",
+  "priority": "NORMAL",
+  "createdAt": "2026-07-22T12:55:06.802Z",
+  "updatedAt": "2026-07-22T13:58:56.843Z",
+  "expirationDate": "2026-08-05T12:55:06.842Z",
+  "isForIosSimulator": false
+}
