@@ -2,15 +2,6 @@ name: Android Build
 
 on:
   workflow_dispatch:
-    inputs:
-      profile:
-        description: "Build profile"
-        required: true
-        type: choice
-        default: "preview"
-        options:
-          - preview
-          - production
 
 jobs:
   build-android:
@@ -23,24 +14,24 @@ jobs:
           node-version: 22
           cache: npm
 
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
       - run: npm ci
 
-      - name: Setup EAS
-        uses: expo/expo-github-action@v8
-        with:
-          eas-version: latest
-          token: ${{ secrets.EXPO_TOKEN }}
+      - name: Prebuild Android
+        run: npx expo prebuild --platform android
 
-      - name: Build Android APK
-        run: eas build --platform android --profile ${{ github.event.inputs.profile }} --non-interactive
- 
-      - name: Download APK
-        run: |
-          echo "APK will be available at: https://expo.dev/accounts/liuweiqing/projects/essay-reader/builds"
+      - name: Build APK
+        working-directory: android
+        run: ./gradlew assembleRelease
 
-      - uses: actions/upload-artifact@v4
-        if: false
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
         with:
           name: essay-reader-apk
-          path: essay-reader.apk
-          retention-days: 7
+          path: android/app/build/outputs/apk/release/app-release.apk
+          retention-days: 30
