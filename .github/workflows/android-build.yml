@@ -32,7 +32,7 @@ jobs:
           token: ${{ secrets.EXPO_TOKEN }}
 
       - name: Build Android APK
-        run: npx eas build --platform android --profile $${{ github.event.inputs.profile }} --non-interactive --no-wait
+        run: npx eas build --platform android --profile ${{ github.event.inputs.profile }} --non-interactive --no-wait
 
       - name: Download APK
         run: |
