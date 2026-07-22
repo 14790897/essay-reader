@@ -19,8 +19,10 @@ interface SettingsProps {
   pitch: number;
   fontSize: number;
   doubaoConfig: DoubaoConfig;
+  doubaoSpeaker: string;
   onProviderChange: (provider: TTSProvider) => void;
   onDoubaoConfigChange: (config: DoubaoConfig) => void;
+  onDoubaoSpeakerChange: (speaker: string) => void;
   selectedVoice: string;
   voices: VoiceInfo[];
   onRateChange: (rate: number) => void;
@@ -39,8 +41,10 @@ export default function Settings({
   pitch,
   fontSize,
   doubaoConfig,
+  doubaoSpeaker,
   onProviderChange,
   onDoubaoConfigChange,
+  onDoubaoSpeakerChange,
   selectedVoice,
   voices,
   onRateChange,
@@ -104,54 +108,44 @@ export default function Settings({
               <View style={styles.doubaoConfig}>
                 <Text style={styles.sectionTitle}>API Config</Text>
                 <Text style={styles.configHint}>
-                  Get credentials from Volcano Engine Console
+                  Create API Key at Volcano Engine Console
                 </Text>
 
-                <Text style={styles.inputLabel}>App ID</Text>
+                <Text style={styles.inputLabel}>X-Api-Key</Text>
                 <TextInput
                   style={styles.textInput}
-                  value={doubaoConfig.appId}
-                  onChangeText={(v) => updateDoubaoField('appId', v)}
-                  placeholder="Your App ID"
-                  placeholderTextColor="#bbb"
-                  autoCapitalize="none"
-                />
-
-                <Text style={styles.inputLabel}>Access Token</Text>
-                <TextInput
-                  style={styles.textInput}
-                  value={doubaoConfig.token}
-                  onChangeText={(v) => updateDoubaoField('token', v)}
-                  placeholder="Your Access Token"
+                  value={doubaoConfig.apiKey}
+                  onChangeText={(v) => updateDoubaoField('apiKey', v)}
+                  placeholder="Your API Key"
                   placeholderTextColor="#bbb"
                   autoCapitalize="none"
                   secureTextEntry
                 />
 
-                <Text style={styles.inputLabel}>Cluster</Text>
+                <Text style={styles.inputLabel}>X-Api-Resource-Id</Text>
                 <TextInput
                   style={styles.textInput}
-                  value={doubaoConfig.cluster}
-                  onChangeText={(v) => updateDoubaoField('cluster', v)}
-                  placeholder="volcano_tts"
+                  value={doubaoConfig.resourceId}
+                  onChangeText={(v) => updateDoubaoField('resourceId', v)}
+                  placeholder="seed-tts-2.0"
                   placeholderTextColor="#bbb"
                   autoCapitalize="none"
                 />
 
-                <Text style={styles.sectionTitle}>Voice</Text>
+                <Text style={styles.sectionTitle}>Speaker</Text>
                 <View style={styles.voiceGrid}>
                   {DOUBAO_VOICES.map((v) => (
                     <TouchableOpacity
                       key={v.id}
                       style={[
                         styles.voiceChip,
-                        doubaoConfig.voiceType === v.id && styles.chipActive,
+                        doubaoSpeaker === v.id && styles.chipActive,
                       ]}
-                      onPress={() => updateDoubaoField('voiceType', v.id)}
+                      onPress={() => onDoubaoSpeakerChange(v.id)}
                     >
                       <Text style={[
                         styles.voiceChipText,
-                        doubaoConfig.voiceType === v.id && styles.chipTextActive,
+                        doubaoSpeaker === v.id && styles.chipTextActive,
                       ]}>
                         {v.name}
                       </Text>
@@ -213,10 +207,7 @@ export default function Settings({
                 {chineseVoices.map((v) => (
                   <TouchableOpacity
                     key={v.identifier}
-                    style={[
-                      styles.voiceItem,
-                      selectedVoice === v.identifier && styles.voiceItemActive,
-                    ]}
+                    style={[styles.voiceItem, selectedVoice === v.identifier && styles.voiceItemActive]}
                     onPress={() => onVoiceChange(v.identifier)}
                   >
                     <Text style={styles.voiceName}>{v.name}</Text>
@@ -227,16 +218,11 @@ export default function Settings({
             )}
             {otherVoices.length > 0 && (
               <>
-                <Text style={[styles.sectionTitle, { marginTop: 16 }]}>
-                  Other Voices
-                </Text>
+                <Text style={[styles.sectionTitle, { marginTop: 16 }]}>Other Voices</Text>
                 {otherVoices.map((v) => (
                   <TouchableOpacity
                     key={v.identifier}
-                    style={[
-                      styles.voiceItem,
-                      selectedVoice === v.identifier && styles.voiceItemActive,
-                    ]}
+                    style={[styles.voiceItem, selectedVoice === v.identifier && styles.voiceItemActive]}
                     onPress={() => onVoiceChange(v.identifier)}
                   >
                     <Text style={styles.voiceName}>{v.name}</Text>
@@ -258,9 +244,7 @@ export default function Settings({
         {tab === 'voice' && provider === 'doubao' && (
           <View>
             <Text style={styles.sectionTitle}>Doubao Voices</Text>
-            <Text style={styles.configHint}>
-              Select voice in the Engine tab.
-            </Text>
+            <Text style={styles.configHint}>Select speaker in the Engine tab above.</Text>
           </View>
         )}
 
@@ -288,141 +272,31 @@ export default function Settings({
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  tabs: {
-    flexDirection: 'row',
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#e0e0e0',
-  },
-  tab: {
-    flex: 1,
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  tabActive: {
-    borderBottomWidth: 2,
-    borderBottomColor: '#007AFF',
-  },
-  tabText: {
-    fontSize: 13,
-    color: '#888',
-  },
-  tabTextActive: {
-    color: '#007AFF',
-    fontWeight: '600',
-  },
-  body: {
-    flex: 1,
-    padding: 16,
-  },
-  sectionTitle: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#888',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 10,
-    marginTop: 8,
-  },
-  providerRow: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  providerChip: {
-    flex: 1,
-    paddingVertical: 14,
-    borderRadius: 10,
-    backgroundColor: '#f0f0f0',
-    alignItems: 'center',
-  },
-  doubaoConfig: {
-    marginTop: 8,
-  },
-  configHint: {
-    fontSize: 12,
-    color: '#aaa',
-    marginBottom: 12,
-  },
-  configHintBox: {
-    marginTop: 12,
-    padding: 12,
-    backgroundColor: '#f8f8f8',
-    borderRadius: 8,
-  },
-  inputLabel: {
-    fontSize: 13,
-    color: '#666',
-    marginBottom: 4,
-    marginTop: 10,
-    fontWeight: '500',
-  },
-  textInput: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 14,
-    color: '#333',
-    backgroundColor: '#fafafa',
-  },
-  voiceGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  voiceChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 16,
-    backgroundColor: '#f0f0f0',
-  },
-  voiceChipText: {
-    fontSize: 13,
-    color: '#555',
-  },
-  chipRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  chip: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 20,
-    backgroundColor: '#f0f0f0',
-  },
-  chipActive: {
-    backgroundColor: '#007AFF',
-  },
-  chipText: {
-    fontSize: 15,
-    color: '#555',
-    fontWeight: '500',
-  },
-  chipTextActive: {
-    color: '#fff',
-  },
-  voiceItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    marginBottom: 4,
-  },
-  voiceItemActive: {
-    backgroundColor: '#E8F0FE',
-  },
-  voiceName: {
-    fontSize: 15,
-    color: '#333',
-  },
-  voiceLang: {
-    fontSize: 13,
-    color: '#888',
-  },
+  container: { flex: 1 },
+  tabs: { flexDirection: 'row', borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#e0e0e0' },
+  tab: { flex: 1, paddingVertical: 12, alignItems: 'center' },
+  tabActive: { borderBottomWidth: 2, borderBottomColor: '#007AFF' },
+  tabText: { fontSize: 13, color: '#888' },
+  tabTextActive: { color: '#007AFF', fontWeight: '600' },
+  body: { flex: 1, padding: 16 },
+  sectionTitle: { fontSize: 13, fontWeight: '600', color: '#888', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 10, marginTop: 8 },
+  providerRow: { flexDirection: 'row', gap: 10 },
+  providerChip: { flex: 1, paddingVertical: 14, borderRadius: 10, backgroundColor: '#f0f0f0', alignItems: 'center' },
+  doubaoConfig: { marginTop: 8 },
+  configHint: { fontSize: 12, color: '#aaa', marginBottom: 12 },
+  configHintBox: { marginTop: 12, padding: 12, backgroundColor: '#f8f8f8', borderRadius: 8 },
+  inputLabel: { fontSize: 13, color: '#666', marginBottom: 4, marginTop: 10, fontWeight: '500' },
+  textInput: { borderWidth: 1, borderColor: '#ddd', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, color: '#333', backgroundColor: '#fafafa' },
+  voiceGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  voiceChip: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 16, backgroundColor: '#f0f0f0' },
+  voiceChipText: { fontSize: 13, color: '#555' },
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  chip: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20, backgroundColor: '#f0f0f0' },
+  chipActive: { backgroundColor: '#007AFF' },
+  chipText: { fontSize: 15, color: '#555', fontWeight: '500' },
+  chipTextActive: { color: '#fff' },
+  voiceItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 12, borderRadius: 8, marginBottom: 4 },
+  voiceItemActive: { backgroundColor: '#E8F0FE' },
+  voiceName: { fontSize: 15, color: '#333' },
+  voiceLang: { fontSize: 13, color: '#888' },
 });

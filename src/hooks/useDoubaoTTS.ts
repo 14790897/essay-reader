@@ -1,13 +1,14 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { Audio } from 'expo-av';
-import { synthesizeSpeech, type DoubaoConfig } from '../services/doubaoTTS';
+import { DoubaoTTSClient, type DoubaoConfig } from '../services/doubaoTTS';
 
 interface UseDoubaoTTSOptions {
   config: DoubaoConfig | null;
+  speaker?: string;
   speedRatio?: number;
-  volumeRatio?: number;
-  pitchRatio?: number;
-  onSentenceChange?: (index: number) => void;
+  pitch?: number;
+  onSentenceStart?: (text: string) => void;
+  onSentenceEnd?: (text: string) => void;
   onDone?: () => void;
 }
 
@@ -17,41 +18,36 @@ export function useDoubaoTTS(options: UseDoubaoTTSOptions) {
   const [isLoading, setIsLoading] = useState(false);
   const [currentSentenceIndex, setCurrentSentenceIndex] = useState(0);
 
+  const clientRef = useRef<DoubaoTTSClient | null>(null);
   const soundRef = useRef<Audio.Sound | null>(null);
-  const sentenceTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const sentenceBoundariesRef = useRef<number[]>([]);
-  const textRef = useRef<string>('');
+  const sentenceCountRef = useRef(0);
+  const sentenceIdxRef = useRef(0);
+  const textRef = useRef('');
   const optionsRef = useRef(options);
   optionsRef.current = options;
 
-  const splitSentences = useCallback((text: string): number[] => {
-    const boundaries: number[] = [0];
-    const regex = /[。！？.!?\n]+/g;
-    let match: RegExpExecArray | null;
-    while ((match = regex.exec(text)) !== null) {
-      boundaries.push(match.index + match[0].length);
-    }
-    if (boundaries[boundaries.length - 1] < text.length) {
-      boundaries.push(text.length);
-    }
-    return boundaries;
-  }, []);
-
-  const clearTimers = useCallback(() => {
-    if (sentenceTimerRef.current) {
-      clearInterval(sentenceTimerRef.current);
-      sentenceTimerRef.current = null;
-    }
+  const splitSentences = useCallback((text: string): string[] => {
+    const regex = /[^。！？.!?\n]+[。！？.!?\n]*/g;
+    const matches = text.match(regex);
+    return matches || [text];
   }, []);
 
   const unloadSound = useCallback(async () => {
     if (soundRef.current) {
-      try {
-        await soundRef.current.unloadAsync();
-      } catch {}
+      try { await soundRef.current.unloadAsync(); } catch {}
       soundRef.current = null;
     }
   }, []);
+
+  const stopSpeaking = useCallback(async () => {
+    clientRef.current?.cancel();
+    clientRef.current = null;
+    setIsSpeaking(false);
+    setIsPaused(false);
+    setIsLoading(false);
+    setCurrentSentenceIndex(0);
+    await unloadSound();
+  }, [unloadSound]);
 
   const speak = useCallback(async (text: string) => {
     const opts = optionsRef.current;
@@ -60,8 +56,9 @@ export function useDoubaoTTS(options: UseDoubaoTTSOptions) {
     await stopSpeaking();
 
     textRef.current = text;
-    const boundaries = splitSentences(text);
-    sentenceBoundariesRef.current = boundaries;
+    const sentences = splitSentences(text);
+    sentenceCountRef.current = sentences.length;
+    sentenceIdxRef.current = 0;
 
     setIsLoading(true);
     setIsSpeaking(true);
@@ -69,74 +66,82 @@ export function useDoubaoTTS(options: UseDoubaoTTSOptions) {
     setCurrentSentenceIndex(0);
 
     try {
-      const base64Audio = await synthesizeSpeech({
-        config: opts.config,
-        text,
-        speedRatio: opts.speedRatio ?? 1.0,
-        volumeRatio: opts.volumeRatio ?? 1.0,
-        pitchRatio: opts.pitchRatio ?? 1.0,
+      const client = new DoubaoTTSClient(opts.config, {
+        onSentenceStart: (payload: any) => {
+          opts.onSentenceStart?.(payload?.text || '');
+        },
+        onSentenceEnd: (payload: any) => {
+          sentenceIdxRef.current++;
+          setCurrentSentenceIndex(sentenceIdxRef.current);
+          opts.onSentenceEnd?.(payload?.text || '');
+        },
+        onDone: () => {
+          setIsSpeaking(false);
+          setIsPaused(false);
+          setIsLoading(false);
+
+          if (clientRef.current) {
+            const audioBase64 = clientRef.current.getAudioBase64();
+            if (audioBase64) {
+              playAudio(audioBase64);
+            }
+          }
+          opts.onDone?.();
+        },
+        onError: (err: Error) => {
+          console.error('Doubao TTS error:', err);
+          setIsSpeaking(false);
+          setIsLoading(false);
+        },
       });
 
-      setIsLoading(false);
+      clientRef.current = client;
 
-      if (!base64Audio) {
-        throw new Error('No audio data returned');
-      }
+      const rate = opts.speedRatio ?? 1.0;
+      const speechRate = Math.round((rate - 1) * 50);
 
-      await Audio.setAudioModeAsync({
-        playsInSilentModeIOS: true,
-        staysActiveInBackground: true,
-        shouldDuckAndroid: true,
+      await client.synthesize(text, opts.speaker || 'zh_female_gaolengyujie_uranus_bigtts', {
+        format: 'mp3',
+        speechRate,
+        pitch: opts.pitch,
+        enableSubtitle: true,
       });
 
-      // Write base64 to temp file and load
-      const { sound } = await Audio.Sound.createAsync(
-        { uri: `data:audio/mp3;base64,${base64Audio}` },
-        { shouldPlay: true },
-        onPlaybackStatusUpdate
-      );
-
-      soundRef.current = sound;
-
-      // Start sentence tracking based on estimated timing
-      const estimatedDurationMs = (text.length / 4) * 1000 / (opts.speedRatio ?? 1.0);
-      const sentenceCount = boundaries.length - 1;
-      const intervalMs = Math.max(200, estimatedDurationMs / sentenceCount);
-
-      let currentIdx = 0;
-      sentenceTimerRef.current = setInterval(() => {
-        currentIdx++;
-        if (currentIdx >= sentenceCount) {
-          clearTimers();
-          return;
-        }
-        setCurrentSentenceIndex(currentIdx);
-        opts.onSentenceChange?.(currentIdx);
-      }, intervalMs);
+      // Audio is played in onDone callback
     } catch (error) {
       console.error('Doubao TTS error:', error);
       setIsSpeaking(false);
       setIsLoading(false);
     }
-  }, [splitSentences, clearTimers]);
+  }, [splitSentences, stopSpeaking]);
 
-  const onPlaybackStatusUpdate = useCallback((status: any) => {
-    if (status.didJustFinish) {
-      clearTimers();
-      setIsSpeaking(false);
-      setIsPaused(false);
-      setCurrentSentenceIndex(0);
-      optionsRef.current.onDone?.();
-    }
-  }, [clearTimers]);
+  const playAudio = useCallback(async (base64: string) => {
+    await unloadSound();
+    await Audio.setAudioModeAsync({
+      playsInSilentModeIOS: true,
+      staysActiveInBackground: true,
+      shouldDuckAndroid: true,
+    });
+
+    const { sound } = await Audio.Sound.createAsync(
+      { uri: `data:audio/mp3;base64,${base64}` },
+      { shouldPlay: true },
+      (status: any) => {
+        if (status.didJustFinish) {
+          setIsSpeaking(false);
+          setIsPaused(false);
+        }
+      }
+    );
+    soundRef.current = sound;
+  }, [unloadSound]);
 
   const pause = useCallback(async () => {
     if (soundRef.current) {
       await soundRef.current.pauseAsync();
       setIsPaused(true);
-      clearTimers();
     }
-  }, [clearTimers]);
+  }, []);
 
   const resume = useCallback(async () => {
     if (soundRef.current) {
@@ -145,27 +150,32 @@ export function useDoubaoTTS(options: UseDoubaoTTSOptions) {
     }
   }, []);
 
-  const stopSpeaking = useCallback(async () => {
-    clearTimers();
-    setIsSpeaking(false);
-    setIsPaused(false);
-    setIsLoading(false);
-    setCurrentSentenceIndex(0);
-    await unloadSound();
-  }, [clearTimers, unloadSound]);
-
   useEffect(() => {
     return () => {
-      clearTimers();
+      clientRef.current?.cancel();
       unloadSound();
     };
-  }, [clearTimers, unloadSound]);
+  }, [unloadSound]);
 
-  const sentenceBoundaries = useMemo(
-    () => sentenceBoundariesRef.current,
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [isSpeaking]
-  );
+  const sentenceBoundaries = useMemo(() => {
+    const text = textRef.current;
+    if (!text) return [];
+    const boundaries: number[] = [0];
+    let pos = 0;
+    for (let i = 0; i < sentenceCountRef.current && pos < text.length; i++) {
+      const match = text.slice(pos).match(/[。！？.!?\n]/);
+      if (match && match.index !== undefined) {
+        pos += match.index + 1;
+        boundaries.push(pos);
+      } else {
+        break;
+      }
+    }
+    if (boundaries[boundaries.length - 1] < text.length) {
+      boundaries.push(text.length);
+    }
+    return boundaries;
+  }, [isSpeaking]);
 
   return {
     isSpeaking,
