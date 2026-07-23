@@ -34,3 +34,20 @@ jobs:
           name: web-build
           path: dist/
           retention-days: 7
+
+  deploy-web:
+    needs: build-web
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: web-build
+      - uses: actions/deploy-pages@v4
+        id: deploy
