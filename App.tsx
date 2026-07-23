@@ -120,19 +120,19 @@ export default function App() {
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
       <View style={styles.header}>
         <TouchableOpacity style={styles.headerBtn} onPress={() => setShowList(true)}>
-          <Text style={styles.headerIcon}>{'\u2630'}</Text>
+          <Text testID="menu-btn" style={styles.headerIcon}>{'\u2630'}</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.headerTitleArea} onPress={handleEditArticle} disabled={!articles.currentArticle}>
-          <Text style={styles.headerTitle} numberOfLines={1}>
+          <Text testID="header-title" style={styles.headerTitle} numberOfLines={1}>
             {articles.currentArticle?.title || 'Essay Reader'}
           </Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.headerBtn} onPress={() => setShowSettings(true)}>
-          <Text style={styles.headerIcon}>{'\u2699'}</Text>
+          <Text testID="settings-btn" style={styles.headerIcon}>{'\u2699'}</Text>
         </TouchableOpacity>
       </View>
       <View style={styles.providerBadge}>
-        <Text style={styles.providerBadgeText}>
+        <Text testID="provider-badge" style={styles.providerBadgeText}>
           {provider === 'doubao' ? 'Doubao TTS \u2022 WebSocket' : 'System TTS'}
         </Text>
       </View>

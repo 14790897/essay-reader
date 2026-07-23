@@ -83,7 +83,7 @@ export default function ArticleList({
       </View>
 
       <TouchableOpacity style={styles.addBtn} onPress={onNewArticle}>
-        <Text style={styles.addBtnText}>+ New Article</Text>
+        <Text testID="new-article-btn" style={styles.addBtnText}>+ New Article</Text>
       </TouchableOpacity>
 
       {articles.length === 0 ? (

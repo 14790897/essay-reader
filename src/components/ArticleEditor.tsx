@@ -53,14 +53,15 @@ export default function ArticleEditor({
             {initialTitle ? 'Edit Article' : 'New Article'}
           </Text>
           <TouchableOpacity onPress={handleSave} style={styles.headerBtn}>
-            <Text style={[styles.saveText, !content.trim() && styles.disabled]}>
+            <Text testID="editor-save-btn" style={[styles.saveText, !content.trim() && styles.disabled]}>
               Save
             </Text>
           </TouchableOpacity>
         </View>
 
         <ScrollView style={styles.body} keyboardShouldPersistTaps="handled">
-          <TextInput
+        <TextInput
+            testID="editor-title-input"
             style={styles.titleInput}
             placeholder="Article Title"
             placeholderTextColor="#999"
@@ -68,7 +69,8 @@ export default function ArticleEditor({
             onChangeText={setTitle}
             maxLength={200}
           />
-          <TextInput
+        <TextInput
+            testID="editor-content-input"
             style={styles.contentInput}
             placeholder="Paste or type your article here..."
             placeholderTextColor="#999"

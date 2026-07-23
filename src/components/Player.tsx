@@ -26,6 +26,7 @@ export default function Player({
     <View style={styles.container}>
       <TouchableOpacity
         style={[styles.btn, styles.secondaryBtn, !hasContent && styles.disabled]}
+        testID="player-stop"
         onPress={onStop}
         disabled={!hasContent}
         activeOpacity={0.6}
@@ -35,6 +36,7 @@ export default function Player({
 
       <TouchableOpacity
         style={[styles.btn, styles.playBtn, !hasContent && styles.disabled]}
+        testID="player-play"
         onPress={() => {
           if (!isSpeaking) {
             onPlay();
@@ -58,11 +60,11 @@ export default function Player({
 
       <View style={styles.statusArea}>
         {isSpeaking ? (
-          <Text style={styles.statusText}>
+          <Text testID="player-status" style={styles.statusText}>
             {isLoading ? 'Synthesizing...' : isPaused ? 'Paused' : 'Reading...'}
           </Text>
         ) : (
-          <Text style={styles.statusText}>
+          <Text testID="player-status" style={styles.statusText}>
             {hasContent ? 'Ready' : 'Add an article'}
           </Text>
         )}
