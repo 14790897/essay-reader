@@ -1,0 +1,47 @@
+{
+  "branches": ["main"],
+  "plugins": [
+    ["@semantic-release/commit-analyzer", {
+      "preset": "conventionalcommits",
+      "releaseRules": [
+        {"type": "feat", "release": "minor"},
+        {"type": "fix", "release": "patch"},
+        {"type": "perf", "release": "patch"},
+        {"type": "docs", "release": "patch"},
+        {"type": "refactor", "release": "patch"},
+        {"type": "style", "release": false},
+        {"type": "test", "release": false},
+        {"type": "chore", "release": false},
+        {"type": "ci", "release": false}
+      ]
+    }],
+    ["@semantic-release/release-notes-generator", {
+      "preset": "conventionalcommits",
+      "presetConfig": {
+        "types": [
+          {"type": "feat", "section": "Features"},
+          {"type": "fix", "section": "Bug Fixes"},
+          {"type": "perf", "section": "Performance"},
+          {"type": "docs", "section": "Documentation"},
+          {"type": "refactor", "section": "Code Refactoring"},
+          {"type": "style", "section": "Styles", "hidden": true},
+          {"type": "test", "section": "Tests", "hidden": true},
+          {"type": "chore", "section": "Chores", "hidden": true},
+          {"type": "ci", "section": "CI/CD", "hidden": true}
+        ]
+      }
+    }],
+    ["@semantic-release/exec", {
+      "prepareCmd": "node -e \"var p=require('./package.json');p.version='${nextRelease.version}';require('fs').writeFileSync('package.json',JSON.stringify(p,null,2)+'\\n')\""
+    }],
+    ["@semantic-release/github", {
+      "assets": [
+        {"path": "android/app/build/outputs/apk/release/app-release.apk", "label": "Android APK ${nextRelease.version}"}
+      ]
+    }],
+    ["@semantic-release/git", {
+      "message": "chore(release): ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}",
+      "assets": ["package.json"]
+    }]
+  ]
+}
