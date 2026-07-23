@@ -29,11 +29,10 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx expo export --platform web
-      - uses: actions/upload-artifact@v4
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
         with:
-          name: web-build
           path: dist/
-          retention-days: 7
 
   deploy-web:
     needs: build-web
@@ -48,6 +47,6 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
-          name: web-build
+          name: github-pages
       - uses: actions/deploy-pages@v4
         id: deploy
