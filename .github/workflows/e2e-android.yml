@@ -6,7 +6,7 @@ on:
 jobs:
   apk-verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 3
     steps:
       - name: Download latest APK from android-build
         env:
@@ -16,19 +16,21 @@ jobs:
           echo "Downloading from run $RUN_ID"
           gh run download $RUN_ID -n essay-reader-apk -R 14790897/essay-reader
 
-      - name: Verify APK structure
+      - name: Verify APK validity
         run: |
-          echo "=== APK file info ==="
+          echo "=== File size ==="
           ls -lh app-release.apk
+          SIZE=$(stat -c%s app-release.apk)
+          if [ "$SIZE" -lt 10000000 ]; then echo "FAIL: APK too small"; exit 1; fi
           echo ""
-          echo "=== APK badging ==="
-          /usr/local/lib/android/sdk/build-tools/*/aapt dump badging app-release.apk | grep -E "package:|launchable-activity:|sdkVersion:"
+          echo "=== APK is valid ZIP ==="
+          unzip -t app-release.apk > /dev/null && echo "PASS: APK is valid ZIP" || (echo "FAIL: corrupt APK"; exit 1)
           echo ""
-          echo "=== APK signing ==="
-          /usr/local/lib/android/sdk/build-tools/*/apksigner verify --print-certs app-release.apk 2>&1 || true
+          echo "=== Contains AndroidManifest ==="
+          unzip -l app-release.apk | grep -q "AndroidManifest.xml" && echo "PASS: has AndroidManifest" || (echo "FAIL: no manifest"; exit 1)
           echo ""
-          echo "=== Verify package name ==="
-          /usr/local/lib/android/sdk/build-tools/*/aapt dump badging app-release.apk | grep "package: name='com.essayreader.app'" && echo "PASS: package name matches" || (echo "FAIL: package name mismatch"; exit 1)
+          echo "=== Package name in manifest ==="
+          unzip -p app-release.apk AndroidManifest.xml | strings | grep -q "com.essayreader.app" && echo "PASS: package matches" || (echo "FAIL: package not found"; exit 1)
 
   e2e-emulator:
     needs: apk-verify
@@ -42,7 +44,7 @@ jobs:
           RUN_ID=$(gh run list -w android-build.yml -R 14790897/essay-reader --limit 1 --json databaseId -q ".[0].databaseId")
           gh run download $RUN_ID -n essay-reader-apk -R 14790897/essay-reader
 
-      - name: Run on Android Emulator (macOS HAXM)
+      - name: Run on Android Emulator
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 30
@@ -54,7 +56,7 @@ jobs:
           script: |
             echo "=== Install APK ===" && adb wait-for-device && adb install app-release.apk && echo "=== Start logcat ===" && adb logcat -c && adb logcat -v time > /tmp/e2e-logcat.txt 2>&1 & echo "=== Launch app ===" && adb shell am start -n com.essayreader.app/.MainActivity -W && echo "=== Wait 20s ===" && sleep 20 && echo "=== Check if app is running ===" && if adb shell pidof com.essayreader.app; then echo "PASS: app running"; adb shell screencap -p /sdcard/screenshot.png && adb pull /sdcard/screenshot.png /tmp/e2e-screenshot.png; else echo "FAIL: app not running"; adb logcat -d | tail -50; exit 1; fi
 
-      - name: Upload E2E artifacts
+      - name: Upload artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
