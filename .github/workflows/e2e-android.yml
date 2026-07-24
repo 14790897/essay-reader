@@ -11,31 +11,41 @@ on:
       - ".github/workflows/e2e-android.yml"
 
 jobs:
-  e2e-android:
+  build-apk:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 17
-
       - run: npm ci
-
       - name: Prebuild Android
         run: npx expo prebuild --platform android
-
-      - name: Build Release APK
+      - name: Build APK
         working-directory: android
-        run: ./gradlew assembleRelease --no-daemon --console=plain
+        run: ./gradlew assembleRelease
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-apk
+          path: android/app/build/outputs/apk/release/app-release.apk
+          retention-days: 1
+
+  e2e-test:
+    needs: build-apk
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Download APK
+        uses: actions/download-artifact@v4
+        with:
+          name: e2e-apk
 
       - name: Run E2E on Android Emulator
         uses: reactivecircus/android-emulator-runner@v2
@@ -47,7 +57,7 @@ jobs:
           disable-animations: true
           disable-spellchecker: true
           script: |
-            echo "=== Install APK ===" && adb wait-for-device && adb install android/app/build/outputs/apk/release/app-release.apk && echo "=== Start logcat ===" && adb logcat -c && timeout 10 adb logcat -v time > /tmp/e2e-logcat.txt 2>&1 & echo "=== Launch app ===" && adb shell am start -n com.essayreader.app/.MainActivity -W && echo "=== Wait for render ===" && for i in $(seq 1 15); do sleep 2; adb shell uiautomator dump /sdcard/ui.xml 2>/dev/null; adb pull /sdcard/ui.xml /tmp/e2e-ui-dump.xml 2>/dev/null && (grep -q "Essay Reader" /tmp/e2e-ui-dump.xml || grep -q "System TTS" /tmp/e2e-ui-dump.xml) && echo "PASS: App rendered" && break; echo "attempt $i/15"; done && adb shell screencap -p /sdcard/screenshot.png && adb pull /sdcard/screenshot.png /tmp/e2e-screenshot.png && echo "=== Verify ===" && if grep -qs "Essay Reader\|System TTS" /tmp/e2e-ui-dump.xml 2>/dev/null; then echo "E2E PASSED"; else echo "E2E FAILED - last logcat:"; tail -30 /tmp/e2e-logcat.txt 2>/dev/null; exit 1; fi
+            echo "=== Install APK ===" && adb wait-for-device && adb install app-release.apk && echo "=== Start logcat ===" && adb logcat -c && timeout 15 adb logcat -v time > /tmp/e2e-logcat.txt 2>&1 & echo "=== Launch app ===" && adb shell am start -n com.essayreader.app/.MainActivity -W && echo "=== Wait for render ===" && for i in $(seq 1 15); do sleep 2; adb shell uiautomator dump /sdcard/ui.xml 2>/dev/null; adb pull /sdcard/ui.xml /tmp/e2e-ui-dump.xml 2>/dev/null && (grep -q "Essay Reader" /tmp/e2e-ui-dump.xml || grep -q "System TTS" /tmp/e2e-ui-dump.xml) && echo "PASS: App rendered after ${i}x2s" && break; echo "attempt $i/15"; done && adb shell screencap -p /sdcard/screenshot.png && adb pull /sdcard/screenshot.png /tmp/e2e-screenshot.png && echo "=== Verify ===" && if grep -qs "Essay Reader\|System TTS" /tmp/e2e-ui-dump.xml 2>/dev/null; then echo "E2E PASSED"; else echo "E2E FAILED - app did not render"; tail -30 /tmp/e2e-logcat.txt 2>/dev/null; exit 1; fi
 
       - name: Upload E2E artifacts
         if: always()
