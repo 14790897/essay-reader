@@ -20,13 +20,9 @@
     "@semantic-release/git": "^10.0.1",
     "@semantic-release/github": "^10.3.5",
     "@semantic-release/release-notes-generator": "^14.1.1",
-    "@types/jest": "^30.0.0",
     "@types/react": "~19.2.2",
     "conventional-changelog-conventionalcommits": "^8.0.0",
-    "detox": "^20.51.4",
-    "jest": "^30.4.2",
     "semantic-release": "^24.2.9",
-    "ts-jest": "^29.4.12",
     "typescript": "~6.0.3"
   },
   "scripts": {

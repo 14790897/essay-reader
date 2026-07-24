@@ -9,7 +9,7 @@ on:
       - "App.tsx"
       - "package.json"
       - ".github/workflows/e2e-android.yml"
-      - "e2e/**"
+      - ".maestro/**"
 
 jobs:
   e2e-android:
@@ -35,16 +35,23 @@ jobs:
 
       - name: Build Debug APK
         working-directory: android
-        run: ./gradlew :app:assembleDebug :app:assembleAndroidTest --no-daemon
+        run: ./gradlew :app:assembleDebug --no-daemon
 
-      - name: Run Detox E2E Tests
+      - name: Install Maestro
+        run: |
+          curl -Ls "https://get.maestro.mobile.dev" | bash
+          echo "$HOME/.maestro/bin" >> $GITHUB_PATH
+
+      - name: Run Maestro E2E Tests
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 30
           target: default
           arch: x86_64
           profile: pixel_4
-          script: npx detox test --configuration android.emu.debug --cleanup
+          script: |
+            adb install android/app/build/outputs/apk/debug/app-debug.apk
+            maestro test --env DOUBAO_API_KEY=$DOUBAO_API_KEY .maestro/
         env:
           DOUBAO_API_KEY: ${{ secrets.DOUBAO_API_KEY }}
           DOUBAO_RESOURCE_ID: ${{ secrets.DOUBAO_RESOURCE_ID }}
