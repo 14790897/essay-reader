@@ -9,7 +9,7 @@ on:
       - "App.tsx"
       - "package.json"
       - ".github/workflows/e2e-android.yml"
-      - ".maestro/**"
+      - ".github/e2e-test.sh"
 
 jobs:
   e2e-android:
@@ -37,19 +37,24 @@ jobs:
         working-directory: android
         run: ./gradlew :app:assembleDebug --no-daemon
 
-      - name: Install Maestro
-        run: |
-          curl -Ls "https://get.maestro.mobile.dev" | bash
-          echo "$HOME/.maestro/bin" >> $GITHUB_PATH
-
-      - name: Run Maestro E2E Tests
+      - name: E2E Tests (adb + uiautomator)
         uses: reactivecircus/android-emulator-runner@v2
-        env:
-          DOUBAO_API_KEY: ${{ secrets.DOUBAO_API_KEY }}
-          DOUBAO_RESOURCE_ID: ${{ secrets.DOUBAO_RESOURCE_ID }}
         with:
           api-level: 30
           target: default
           arch: x86_64
           profile: pixel_4
-          script: adb wait-for-device && adb install android/app/build/outputs/apk/debug/app-debug.apk && maestro test --env DOUBAO_API_KEY=$DOUBAO_API_KEY .maestro/
+          disable-animations: true
+          disable-spellchecker: true
+          script: adb wait-for-device && adb install android/app/build/outputs/apk/debug/app-debug.apk && chmod +x .github/e2e-test.sh && ./.github/e2e-test.sh
+
+      - name: Upload E2E artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-artifacts
+          path: |
+            /tmp/e2e-screenshot.png
+            /tmp/e2e-logcat.txt
+            /tmp/e2e-ui-dump.xml
+          retention-days: 3
