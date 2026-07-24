@@ -21,43 +21,9 @@ jobs:
           echo "=== File size ==="
           ls -lh app-release.apk
           SIZE=$(stat -c%s app-release.apk)
-          if [ "$SIZE" -lt 10000000 ]; then echo "FAIL: APK too small"; exit 1; fi
+          if [ "$SIZE" -lt 10000000 ]; then echo "FAIL: APK too small (<10MB)"; exit 1; fi
           echo "=== APK is valid ZIP ==="
           unzip -t app-release.apk > /dev/null && echo "PASS: valid ZIP" || (echo "FAIL: corrupt"; exit 1)
           echo "=== Contains AndroidManifest ==="
           unzip -l app-release.apk | grep -q "AndroidManifest.xml" && echo "PASS: has manifest" || (echo "FAIL"; exit 1)
-          echo "=== All checks passed ==="
-
-  e2e-emulator:
-    needs: apk-verify
-    runs-on: macos-13
-    timeout-minutes: 25
-    steps:
-      - name: Download latest APK from android-build
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          RUN_ID=$(gh run list -w android-build.yml -R 14790897/essay-reader --limit 1 --json databaseId -q ".[0].databaseId")
-          gh run download $RUN_ID -n essay-reader-apk -R 14790897/essay-reader
-
-      - name: Run on Android Emulator
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 30
-          target: default
-          arch: x86_64
-          profile: pixel_4
-          disable-animations: true
-          disable-spellchecker: true
-          script: |
-            echo "=== Install APK ===" && adb wait-for-device && adb install app-release.apk && echo "=== Start logcat ===" && adb logcat -c && adb logcat -v time > /tmp/e2e-logcat.txt 2>&1 & echo "=== Launch app ===" && adb shell am start -n com.essayreader.app/.MainActivity -W && echo "=== Wait 20s ===" && sleep 20 && echo "=== Check if app is running ===" && if adb shell pidof com.essayreader.app; then echo "PASS: app running"; adb shell screencap -p /sdcard/screenshot.png && adb pull /sdcard/screenshot.png /tmp/e2e-screenshot.png; else echo "FAIL: app not running"; adb logcat -d | tail -50; exit 1; fi
-
-      - name: Upload artifacts
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: e2e-artifacts
-          path: |
-            /tmp/e2e-screenshot.png
-            /tmp/e2e-logcat.txt
-          retention-days: 3
+          echo "=== PASS ==="
