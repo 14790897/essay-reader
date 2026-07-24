@@ -113,6 +113,7 @@ export default function Settings({
 
                 <Text style={styles.inputLabel}>X-Api-Key</Text>
                 <TextInput
+                  testID="doubao-api-key-input"
                   style={styles.textInput}
                   value={doubaoConfig.apiKey}
                   onChangeText={(v) => updateDoubaoField('apiKey', v)}
@@ -124,6 +125,7 @@ export default function Settings({
 
                 <Text style={styles.inputLabel}>X-Api-Resource-Id</Text>
                 <TextInput
+                  testID="doubao-resource-id-input"
                   style={styles.textInput}
                   value={doubaoConfig.resourceId}
                   onChangeText={(v) => updateDoubaoField('resourceId', v)}
