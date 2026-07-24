@@ -4,9 +4,9 @@ on:
   workflow_dispatch:
 
 jobs:
-  e2e-android:
+  apk-verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 5
     steps:
       - name: Download latest APK from android-build
         env:
@@ -15,9 +15,34 @@ jobs:
           RUN_ID=$(gh run list -w android-build.yml -R 14790897/essay-reader --limit 1 --json databaseId -q ".[0].databaseId")
           echo "Downloading from run $RUN_ID"
           gh run download $RUN_ID -n essay-reader-apk -R 14790897/essay-reader
-          ls -la app-release.apk
 
-      - name: Smoke test on Android Emulator
+      - name: Verify APK structure
+        run: |
+          echo "=== APK file info ==="
+          ls -lh app-release.apk
+          echo ""
+          echo "=== APK badging ==="
+          /usr/local/lib/android/sdk/build-tools/*/aapt dump badging app-release.apk | grep -E "package:|launchable-activity:|sdkVersion:"
+          echo ""
+          echo "=== APK signing ==="
+          /usr/local/lib/android/sdk/build-tools/*/apksigner verify --print-certs app-release.apk 2>&1 || true
+          echo ""
+          echo "=== Verify package name ==="
+          /usr/local/lib/android/sdk/build-tools/*/aapt dump badging app-release.apk | grep "package: name='com.essayreader.app'" && echo "PASS: package name matches" || (echo "FAIL: package name mismatch"; exit 1)
+
+  e2e-emulator:
+    needs: apk-verify
+    runs-on: macos-13
+    timeout-minutes: 25
+    steps:
+      - name: Download latest APK from android-build
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          RUN_ID=$(gh run list -w android-build.yml -R 14790897/essay-reader --limit 1 --json databaseId -q ".[0].databaseId")
+          gh run download $RUN_ID -n essay-reader-apk -R 14790897/essay-reader
+
+      - name: Run on Android Emulator (macOS HAXM)
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 30
@@ -27,7 +52,7 @@ jobs:
           disable-animations: true
           disable-spellchecker: true
           script: |
-            echo "=== Install APK ===" && adb wait-for-device && adb install app-release.apk && echo "=== Start logcat ===" && adb logcat -c && adb logcat -v time > /tmp/e2e-logcat.txt 2>&1 & echo "=== Launch app ===" && adb shell am start -n com.essayreader.app/.MainActivity -W && echo "=== Wait 20s for app to render ===" && sleep 20 && echo "=== Take screenshot ===" && adb shell screencap -p /sdcard/screenshot.png && adb pull /sdcard/screenshot.png /tmp/e2e-screenshot.png && echo "=== Check if app process is running ===" && if adb shell pidof com.essayreader.app; then echo "PASS: app process running"; else echo "FAIL: app process not found"; exit 1; fi
+            echo "=== Install APK ===" && adb wait-for-device && adb install app-release.apk && echo "=== Start logcat ===" && adb logcat -c && adb logcat -v time > /tmp/e2e-logcat.txt 2>&1 & echo "=== Launch app ===" && adb shell am start -n com.essayreader.app/.MainActivity -W && echo "=== Wait 20s ===" && sleep 20 && echo "=== Check if app is running ===" && if adb shell pidof com.essayreader.app; then echo "PASS: app running"; adb shell screencap -p /sdcard/screenshot.png && adb pull /sdcard/screenshot.png /tmp/e2e-screenshot.png; else echo "FAIL: app not running"; adb logcat -d | tail -50; exit 1; fi
 
       - name: Upload E2E artifacts
         if: always()
