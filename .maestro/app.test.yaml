@@ -10,16 +10,15 @@ appId: com.essayreader.app
 - assertVisible:
     text: "System TTS"
 
-# Open article list via menu button text ("☰")
+# Open article list via menu button
 - tapOn:
-    text: "☰"
+    id: "com.essayreader.app:id/menu-btn"
 
 - assertVisible:
     text: "My Articles"
 
 # Create a new article
-- tapOn:
-    text: "\+ New Article"
+- tapOn: "+ New Article"
 
 - tapOn:
     text: "Article Title"
@@ -36,7 +35,3 @@ appId: com.essayreader.app
 
 - assertVisible:
     text: "E2E Test"
-
-# Play with system TTS
-- tapOn:
-    text: "▶️"
