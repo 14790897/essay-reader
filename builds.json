@@ -1,0 +1,111 @@
+[
+  {
+    "id": "a2c72b1c-fb71-4e3e-aa40-ba61c6f439b6",
+    "status": "IN_QUEUE",
+    "platform": "ANDROID",
+    "artifacts": {},
+    "fingerprint": {
+      "id": "019f8a25-1f58-7621-ad32-80e5376841bc",
+      "hash": "1efc14a068a23394181244c7dffef6b1f8675d9b"
+    },
+    "initiatingActor": {
+      "id": "f7556283-b30b-4efb-a128-b315b56cee6a",
+      "displayName": "liuweiqing"
+    },
+    "logFiles": [],
+    "project": {
+      "id": "0996df39-b743-49cd-bcf9-40dd616f83fc",
+      "name": "essay-reader",
+      "slug": "essay-reader",
+      "ownerAccount": {
+        "id": "d04806c6-bcc0-42a8-969c-7e0314f33c26",
+        "name": "liuweiqing"
+      }
+    },
+    "distribution": "INTERNAL",
+    "buildProfile": "preview",
+    "sdkVersion": "57.0.0",
+    "appVersion": "1.0.0",
+    "appBuildVersion": "1",
+    "gitCommitHash": "51bd731f1f68e5df41cdcbbee906c11bc0373664",
+    "gitCommitMessage": "fix: add image:latest to eas build profile",
+    "priority": "NORMAL",
+    "createdAt": "2026-07-22T14:51:20.948Z",
+    "updatedAt": "2026-07-22T14:51:23.458Z",
+    "expirationDate": "2026-08-05T14:51:20.984Z",
+    "isForIosSimulator": false
+  },
+  {
+    "id": "4f380698-97b4-4003-8bd1-8c400082322d",
+    "status": "IN_QUEUE",
+    "platform": "ANDROID",
+    "artifacts": {},
+    "fingerprint": {
+      "id": "019f8a25-1f58-7621-ad32-80e5376841bc",
+      "hash": "1efc14a068a23394181244c7dffef6b1f8675d9b"
+    },
+    "initiatingActor": {
+      "id": "f7556283-b30b-4efb-a128-b315b56cee6a",
+      "displayName": "liuweiqing"
+    },
+    "logFiles": [],
+    "project": {
+      "id": "0996df39-b743-49cd-bcf9-40dd616f83fc",
+      "name": "essay-reader",
+      "slug": "essay-reader",
+      "ownerAccount": {
+        "id": "d04806c6-bcc0-42a8-969c-7e0314f33c26",
+        "name": "liuweiqing"
+      }
+    },
+    "distribution": "INTERNAL",
+    "buildProfile": "preview",
+    "sdkVersion": "57.0.0",
+    "appVersion": "1.0.0",
+    "appBuildVersion": "1",
+    "gitCommitHash": "51bd731f1f68e5df41cdcbbee906c11bc0373664",
+    "gitCommitMessage": "fix: add image:latest to eas build profile",
+    "priority": "NORMAL",
+    "createdAt": "2026-07-22T14:05:16.454Z",
+    "updatedAt": "2026-07-22T14:05:18.352Z",
+    "expirationDate": "2026-08-05T14:05:16.495Z",
+    "isForIosSimulator": false
+  },
+  {
+    "id": "17f2eeb0-091c-4d8c-b8b3-6b0261845405",
+    "status": "CANCELED",
+    "platform": "ANDROID",
+    "artifacts": {},
+    "fingerprint": {
+      "id": "019f89e4-e369-7095-a5f9-499d54a21d4d",
+      "hash": "307cd021cd4b4665c214805f32eb889795b9f2e8"
+    },
+    "initiatingActor": {
+      "id": "f7556283-b30b-4efb-a128-b315b56cee6a",
+      "displayName": "liuweiqing"
+    },
+    "logFiles": [],
+    "project": {
+      "id": "0996df39-b743-49cd-bcf9-40dd616f83fc",
+      "name": "essay-reader",
+      "slug": "essay-reader",
+      "ownerAccount": {
+        "id": "d04806c6-bcc0-42a8-969c-7e0314f33c26",
+        "name": "liuweiqing"
+      }
+    },
+    "distribution": "INTERNAL",
+    "buildProfile": "preview",
+    "sdkVersion": "57.0.0",
+    "appVersion": "1.0.0",
+    "appBuildVersion": "1",
+    "gitCommitHash": "524e653fe2447aef54b3efba8550ca66199c925e",
+    "gitCommitMessage": "fix: use eas instead of npx eas in CI (yarn global install)",
+    "priority": "NORMAL",
+    "createdAt": "2026-07-22T13:36:41.750Z",
+    "updatedAt": "2026-07-22T14:02:38.196Z",
+    "completedAt": "2026-07-22T14:02:38.045Z",
+    "expirationDate": "2026-08-05T13:36:41.798Z",
+    "isForIosSimulator": false
+  }
+]
