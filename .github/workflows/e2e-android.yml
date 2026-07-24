@@ -35,7 +35,7 @@ jobs:
 
       - name: Build Debug APK
         working-directory: android
-        run: ./gradlew assembleDebug assembleAndroidTest
+        run: ./gradlew :app:assembleDebug :app:assembleAndroidTest --no-daemon
 
       - name: Run Detox E2E Tests
         uses: reactivecircus/android-emulator-runner@v2
