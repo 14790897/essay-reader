@@ -120,6 +120,7 @@ export default function App() {
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
       <View style={styles.header}>
         <TouchableOpacity style={styles.headerBtn} onPress={() => setShowList(true)}>
+        testID="menu-btn"
           <Text style={styles.headerIcon}>{'\u2630'}</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.headerTitleArea} onPress={handleEditArticle} disabled={!articles.currentArticle}>
@@ -128,6 +129,7 @@ export default function App() {
           </Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.headerBtn} onPress={() => setShowSettings(true)}>
+        testID="settings-btn"
           <Text style={styles.headerIcon}>{'\u2699'}</Text>
         </TouchableOpacity>
       </View>

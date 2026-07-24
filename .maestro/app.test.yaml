@@ -1,17 +1,20 @@
 appId: com.essayreader.app
 ---
 - launchApp:
-    appId: com.essayreader.app
+    clearState: true
 - extendedWaitUntil:
     visible: "Essay Reader"
     timeout: 30000
-- takeScreenshot: /tmp/e2e-screenshot.png
 
 - assertVisible: "System TTS"
 
-- tapOn: "☰"
+# Open article list
+- tapOn:
+    id: "com.essayreader.app:id/menu-btn"
 - assertVisible: "My Articles"
 - tapOn: "+ New Article"
+
+# Fill in article
 - tapOn:
     text: "Article Title"
 - inputText: "E2E Test"
@@ -23,22 +26,24 @@ appId: com.essayreader.app
 - tapOn: "Save"
 - assertVisible: "E2E Test"
 
-- assertVisible: "▶️"
+# System TTS
 - tapOn: "▶️"
 - assertVisible: "Reading..."
 - tapOn: "⏮"
 - assertVisible: "Ready"
 
-- tapOn: "⚙"
+# Switch to Doubao
+- tapOn:
+    id: "com.essayreader.app:id/settings-btn"
 - assertVisible: "Settings"
 - tapOn: "Doubao TTS"
 - tapOn:
-    id: "doubao-api-key-input"
+    id: "com.essayreader.app:id/doubao-api-key-input"
 - inputText: "${DOUBAO_API_KEY}"
 - hideKeyboard
 - tapOn: "Done"
 
-- assertVisible: "Doubao TTS"
+# Doubao TTS
 - tapOn: "▶️"
 - extendedWaitUntil:
     visible: "Reading..."
@@ -46,12 +51,15 @@ appId: com.essayreader.app
 - tapOn: "⏮"
 - assertVisible: "Ready"
 
-- tapOn: "⚙"
+# Switch back and clean up
+- tapOn:
+    id: "com.essayreader.app:id/settings-btn"
 - tapOn: "System"
 - tapOn: "Done"
 - assertVisible: "System TTS"
 
-- tapOn: "☰"
+- tapOn:
+    id: "com.essayreader.app:id/menu-btn"
 - tapOn: "🗑"
 - tapOn: "Delete"
 - assertVisible: "No articles yet"
