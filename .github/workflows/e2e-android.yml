@@ -9,11 +9,11 @@ on:
       - "App.tsx"
       - "package.json"
       - ".github/workflows/e2e-android.yml"
-      - ".github/e2e-test.sh"
 
 jobs:
   e2e-android:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
 
@@ -35,9 +35,9 @@ jobs:
 
       - name: Build Debug APK
         working-directory: android
-        run: ./gradlew :app:assembleDebug --no-daemon
+        run: ./gradlew :app:assembleDebug --no-daemon --console=plain
 
-      - name: E2E Tests (adb + uiautomator)
+      - name: Run E2E on Android Emulator
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 30
@@ -46,7 +46,8 @@ jobs:
           profile: pixel_4
           disable-animations: true
           disable-spellchecker: true
-          script: adb wait-for-device && adb install android/app/build/outputs/apk/debug/app-debug.apk && chmod +x .github/e2e-test.sh && ./.github/e2e-test.sh
+          script: |
+            echo "=== Install APK ===" && adb wait-for-device && adb install android/app/build/outputs/apk/debug/app-debug.apk && echo "=== Start logcat ===" && adb logcat -c && timeout 10 adb logcat -v time > /tmp/e2e-logcat.txt 2>&1 & echo "=== Launch app ===" && adb shell am start -n com.essayreader.app/.MainActivity -W && echo "=== Wait for render ===" && for i in $(seq 1 15); do sleep 2; adb shell uiautomator dump /sdcard/ui.xml 2>/dev/null; adb pull /sdcard/ui.xml /tmp/e2e-ui-dump.xml 2>/dev/null && (grep -q 'Essay Reader' /tmp/e2e-ui-dump.xml || grep -q 'System TTS' /tmp/e2e-ui-dump.xml) && echo "PASS: App rendered" && break; echo "attempt $i/15"; done && adb shell screencap -p /sdcard/screenshot.png && adb pull /sdcard/screenshot.png /tmp/e2e-screenshot.png && echo "=== Verify ===" && if grep -qs 'Essay Reader\|System TTS' /tmp/e2e-ui-dump.xml 2>/dev/null; then echo "E2E PASSED"; else echo "E2E FAILED - last logcat:"; tail -30 /tmp/e2e-logcat.txt 2>/dev/null; exit 1; fi
 
       - name: Upload E2E artifacts
         if: always()
