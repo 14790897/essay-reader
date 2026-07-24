@@ -2,8 +2,8 @@ import { test, expect } from "@playwright/test";
 
 test("app loads and shows header", async ({ page }) => {
   await page.goto("/");
-  await expect(page.locator("text=Essay Reader")).toBeVisible({ timeout: 15000 });
-  await expect(page.locator("text=System TTS")).toBeVisible();
+  await expect(page.getByText("Essay Reader")).toBeVisible({ timeout: 15000 });
+  await expect(page.getByText("System TTS")).toBeVisible();
 });
 
 test("open article list and create new article", async ({ page }) => {
@@ -11,22 +11,22 @@ test("open article list and create new article", async ({ page }) => {
 
   // Click hamburger menu button
   await page.locator('[data-testid="menu-btn"]').click();
-  await expect(page.locator("text=My Articles")).toBeVisible();
+  await expect(page.getByText("My Articles")).toBeVisible();
 
-  // Click new article button
-  await page.locator("text=+ New Article").click();
+  // Click "New Article" button (use testid to avoid strict mode)
+  await page.locator('[data-testid="new-article-btn"]').click();
 
   // Fill in title
-  await page.locator("text=Article Title").fill("E2E Test Article");
+  await page.getByPlaceholder("Article Title").fill("E2E Test Article");
 
   // Fill in content
-  await page.locator("text=Paste or type your article here").fill("Hello from Playwright E2E.");
+  await page.getByPlaceholder("Paste or type your article here").fill("Hello from Playwright E2E.");
 
   // Save
-  await page.locator("text=Save").click();
+  await page.getByText("Save").click();
 
   // Verify article appears
-  await expect(page.locator("text=E2E Test Article")).toBeVisible();
+  await expect(page.getByText("E2E Test Article")).toBeVisible();
 });
 
 test("open settings panel", async ({ page }) => {
@@ -35,10 +35,10 @@ test("open settings panel", async ({ page }) => {
   // Click settings button
   await page.locator('[data-testid="settings-btn"]').click();
 
-  // Verify settings opened
-  await expect(page.locator("text=TTS Engine")).toBeVisible({ timeout: 5000 });
+  // Verify settings opened - look for Doubao or TTS related text
+  await expect(page.getByText("Doubao")).toBeVisible({ timeout: 5000 });
 
   // Close settings
-  await page.locator("text=Done").click();
-  await expect(page.locator("text=TTS Engine")).not.toBeVisible();
+  await page.getByText("Done").click();
+  await expect(page.getByText("Doubao")).not.toBeVisible();
 });
