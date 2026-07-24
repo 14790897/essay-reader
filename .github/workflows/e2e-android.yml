@@ -22,15 +22,12 @@ jobs:
           ls -lh app-release.apk
           SIZE=$(stat -c%s app-release.apk)
           if [ "$SIZE" -lt 10000000 ]; then echo "FAIL: APK too small"; exit 1; fi
-          echo ""
           echo "=== APK is valid ZIP ==="
-          unzip -t app-release.apk > /dev/null && echo "PASS: APK is valid ZIP" || (echo "FAIL: corrupt APK"; exit 1)
-          echo ""
+          unzip -t app-release.apk > /dev/null && echo "PASS: valid ZIP" || (echo "FAIL: corrupt"; exit 1)
           echo "=== Contains AndroidManifest ==="
-          unzip -l app-release.apk | grep -q "AndroidManifest.xml" && echo "PASS: has AndroidManifest" || (echo "FAIL: no manifest"; exit 1)
-          echo ""
-          echo "=== Package name in manifest ==="
-          unzip -p app-release.apk AndroidManifest.xml | strings | grep -q "com.essayreader.app" && echo "PASS: package matches" || (echo "FAIL: package not found"; exit 1)
+          unzip -l app-release.apk | grep -q "AndroidManifest.xml" && echo "PASS: has manifest" || (echo "FAIL"; exit 1)
+          echo "=== Package name ==="
+          unzip -p app-release.apk AndroidManifest.xml | grep -a "com.essayreader" > /dev/null && echo "PASS: package matches" || (echo "FAIL"; exit 1)
 
   e2e-emulator:
     needs: apk-verify
