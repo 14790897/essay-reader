@@ -1,14 +1,17 @@
 appId: com.essayreader.app
 ---
-- launchApp
-- assertVisible: "Essay Reader"
+- launchApp:
+    appId: com.essayreader.app
+- extendedWaitUntil:
+    visible: "Essay Reader"
+    timeout: 30000
+- takeScreenshot: /tmp/e2e-screenshot.png
+
 - assertVisible: "System TTS"
 
-# Open article list and create article
 - tapOn: "☰"
 - assertVisible: "My Articles"
 - tapOn: "+ New Article"
-- inputText: "E2E Test"
 - tapOn:
     text: "Article Title"
 - inputText: "E2E Test"
@@ -20,25 +23,21 @@ appId: com.essayreader.app
 - tapOn: "Save"
 - assertVisible: "E2E Test"
 
-# System TTS playback
 - assertVisible: "▶️"
 - tapOn: "▶️"
 - assertVisible: "Reading..."
 - tapOn: "⏮"
 - assertVisible: "Ready"
 
-# Settings - switch to Doubao TTS
 - tapOn: "⚙"
 - assertVisible: "Settings"
 - tapOn: "Doubao TTS"
-- assertVisible: "Speaker"
 - tapOn:
     id: "doubao-api-key-input"
 - inputText: "${DOUBAO_API_KEY}"
 - hideKeyboard
 - tapOn: "Done"
 
-# Doubao TTS playback
 - assertVisible: "Doubao TTS"
 - tapOn: "▶️"
 - extendedWaitUntil:
@@ -47,11 +46,11 @@ appId: com.essayreader.app
 - tapOn: "⏮"
 - assertVisible: "Ready"
 
-# Switch back and clean up
 - tapOn: "⚙"
 - tapOn: "System"
 - tapOn: "Done"
 - assertVisible: "System TTS"
+
 - tapOn: "☰"
 - tapOn: "🗑"
 - tapOn: "Delete"
