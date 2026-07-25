@@ -79,23 +79,23 @@ jobs:
           with open(path) as f:
               lines = f.readlines()
           out = []
+          in_deps = False
+          dep_count = 0
           for i, line in enumerate(lines):
               out.append(line)
               if 'versionName' in line and '1.0.0' in line:
                   out.append('        testInstrumentationRunner \"androidx.test.runner.AndroidJUnitRunner\"\n')
+              if 'dependencies {' in line:
+                  in_deps = True
+              if in_deps and line.strip() == '}' and dep_count == 0:
+                  dep_count += 1
+                  out.append('    androidTestImplementation(\"androidx.test.ext:junit:1.2.1\")\n')
+                  out.append('    androidTestImplementation(\"androidx.test:core:1.6.1\")\n')
+                  out.append('    androidTestImplementation(\"androidx.test:runner:1.6.2\")\n')
+                  out.append('    androidTestImplementation(\"androidx.test:rules:1.6.1\")\n')
+                  out.append('    androidTestImplementation(\"androidx.test.espresso:espresso-core:3.6.1\")\n')
           with open(path, 'w') as f:
               f.writelines(out)
-          test_deps = '\n'.join([
-              '',
-              '    androidTestImplementation(\"androidx.test.ext:junit:1.2.1\")',
-              '    androidTestImplementation(\"androidx.test:core:1.6.1\")',
-              '    androidTestImplementation(\"androidx.test:runner:1.6.2\")',
-              '    androidTestImplementation(\"androidx.test:rules:1.6.1\")',
-              '    androidTestImplementation(\"androidx.test.espresso:espresso-core:3.6.1\")',
-              '',
-          ])
-          with open(path, 'a') as f:
-              f.write(test_deps)
           print('build.gradle updated for instrumented tests')
           "
 
