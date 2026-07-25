@@ -6,7 +6,7 @@ on:
 jobs:
   build-android:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
 
@@ -28,14 +28,12 @@ jobs:
           EXPO_NO_NEW_ARCH: "1"
         run: npx expo prebuild --platform android
 
-      - name: Verify newArchEnabled is false
+      - name: Verify newArchEnabled
         run: grep newArchEnabled android/gradle.properties
 
       - name: Build APK
         working-directory: android
-        run: |
-          ./gradlew --stop 2>/dev/null || true
-          ./gradlew assembleRelease --no-daemon
+        run: ./gradlew assembleRelease
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
