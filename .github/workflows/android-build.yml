@@ -43,6 +43,33 @@ jobs:
 
   smoke-test:
     needs: build-android
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Download APK
+        uses: actions/download-artifact@v4
+        with:
+          name: essay-reader-apk
+
+      - name: Install and launch on emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          arch: x86_64
+          disable-animations: true
+          script: |
+            adb install app-release.apk
+            adb shell am start -n com.essayreader.app/.MainActivity
+            sleep 15
+            adb shell screencap -p /sdcard/screenshot.png
+            adb pull /sdcard/screenshot.png .
+
+      - name: Upload screenshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-test-screenshot
+          path: screenshot.png
+          retention-days: 7
 
   instrumented-test:
     runs-on: ubuntu-latest
@@ -116,34 +143,7 @@ jobs:
 
       - name: Upload test report
         uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: test-report
           path: android/app/build/reports/androidTests/
-        if: always()
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - name: Download APK
-        uses: actions/download-artifact@v4
-        with:
-          name: essay-reader-apk
-
-      - name: Install and launch on emulator
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 30
-          arch: x86_64
-          disable-animations: true
-          script: |
-            adb install app-release.apk
-            adb shell am start -n com.essayreader.app/.MainActivity
-            sleep 15
-            adb shell screencap -p /sdcard/screenshot.png
-            adb pull /sdcard/screenshot.png .
-
-      - name: Upload screenshot
-        uses: actions/upload-artifact@v4
-        with:
-          name: smoke-test-screenshot
-          path: screenshot.png
-          retention-days: 7
