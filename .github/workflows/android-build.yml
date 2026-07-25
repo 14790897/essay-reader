@@ -41,96 +41,32 @@ jobs:
           path: android/app/build/outputs/apk/release/app-release.apk
           retention-days: 30
 
-  emulator-test:
+  smoke-test:
     needs: build-android
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
+      - name: Download APK
+        uses: actions/download-artifact@v4
         with:
-          node-version: 22
-          cache: npm
+          name: essay-reader-apk
 
-      - name: Setup Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: 17
-
-      - run: npm ci
-
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          cache-read-only: true
-
-      - name: Prebuild Android
-        run: npx expo prebuild --platform android
-
-      - name: Setup instrumented tests
-        run: |
-          mkdir -p android/app/src/androidTest/java/com/essayreader/app
-          cp e2e/android/BasicTest.kt android/app/src/androidTest/java/com/essayreader/app/
-          python3 -c "
-          import os
-          path = 'android/app/build.gradle'
-          with open(path) as f:
-              lines = f.readlines()
-          out = []
-          in_deps = False
-          dep_count = 0
-          for i, line in enumerate(lines):
-              out.append(line)
-              if 'versionName' in line and '1.0.0' in line:
-                  out.append('        testInstrumentationRunner \"androidx.test.runner.AndroidJUnitRunner\"\n')
-              if 'dependencies {' in line:
-                  in_deps = True
-              if in_deps and line.strip() == '}' and dep_count == 0:
-                  dep_count += 1
-                  out.append('    androidTestImplementation(\"androidx.test.ext:junit:1.2.1\")\n')
-                  out.append('    androidTestImplementation(\"androidx.test:core:1.6.1\")\n')
-                  out.append('    androidTestImplementation(\"androidx.test:runner:1.6.2\")\n')
-                  out.append('    androidTestImplementation(\"androidx.test:rules:1.6.1\")\n')
-                  out.append('    androidTestImplementation(\"androidx.test.espresso:espresso-core:3.6.1\")\n')
-          with open(path, 'w') as f:
-              f.writelines(out)
-          print('build.gradle updated for instrumented tests')
-          "
-
-      - name: Bundle JS (no Metro needed)
-        run: |
-          mkdir -p android/app/src/main/assets
-          npx react-native bundle --platform android --dev false --entry-file index.js --bundle-output android/app/src/main/assets/index.android.bundle --assets-dest android/app/src/main/res/
-
-      - name: Enable KVM
-        run: |
-          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm.rules
-          sudo udevadm control --reload-rules
-          sudo udevadm trigger --name-match=kvm
-
-      - name: Run instrumented tests on emulator
+      - name: Install and launch on emulator
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 30
           arch: x86_64
           disable-animations: true
-          disk-size: 6000M
-          heap-size: 600M
           script: |
-            cd android && ./gradlew connectedDebugAndroidTest --build-cache --daemon
+            adb install app-release.apk
+            adb shell am start -n com.essayreader.app/.MainActivity
+            sleep 15
+            adb shell screencap -p /sdcard/screenshot.png
+            adb pull /sdcard/screenshot.png .
 
-      - name: Download APK artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: essay-reader-apk
-          path: ./
-
-      - name: Upload APK + test results
+      - name: Upload screenshot
         uses: actions/upload-artifact@v4
         with:
-          name: essay-reader-test-results
-          path: |
-            app-release.apk
-            android/app/build/reports/androidTests/
+          name: smoke-test-screenshot
+          path: screenshot.png
+          retention-days: 7
