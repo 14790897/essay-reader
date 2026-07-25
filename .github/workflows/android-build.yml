@@ -40,3 +40,30 @@ jobs:
           name: essay-reader-apk
           path: android/app/build/outputs/apk/release/app-release.apk
           retention-days: 30
+
+  firebase-test:
+    needs: build-android
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download APK
+        uses: actions/download-artifact@v4
+        with:
+          name: essay-reader-apk
+
+      - name: Auth to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+
+      - name: Setup gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Run Firebase Test Lab (Robo)
+        run: |
+          gcloud firebase test android run \
+            --type robo \
+            --app app-release.apk \
+            --device model=Pixel2,version=30,locale=en,orientation=portrait \
+            --timeout 5m \
+            --results-bucket=essay-reader-test-results \
+            --results-dir="robo-$(date +%Y%m%d-%H%M%S)"
