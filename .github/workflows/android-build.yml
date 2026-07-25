@@ -23,12 +23,13 @@ jobs:
 
       - run: npm ci
 
-      - name: Prebuild Android (no New Architecture)
-        env:
-          EXPO_NO_NEW_ARCH: "1"
+      - name: Prebuild Android
         run: npx expo prebuild --platform android
 
-      - name: Verify newArchEnabled
+      - name: Disable New Architecture
+        run: sed -i 's/newArchEnabled=true/newArchEnabled=false/' android/gradle.properties
+
+      - name: Verify newArchEnabled is false
         run: grep newArchEnabled android/gradle.properties
 
       - name: Build APK
