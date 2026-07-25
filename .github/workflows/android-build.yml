@@ -73,10 +73,31 @@ jobs:
         run: |
           mkdir -p android/app/src/androidTest/java/com/essayreader/app
           cp e2e/android/BasicTest.kt android/app/src/androidTest/java/com/essayreader/app/
-          # Add testInstrumentationRunner
-          sed -i '/versionName "1.0.0"/a\        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"' android/app/build.gradle
-          # Add test dependencies before the closing } of dependencies block
-          sed -i '/^}$/i\    androidTestImplementation("androidx.test.ext:junit:1.2.1")\n    androidTestImplementation("androidx.test:core:1.6.1")\n    androidTestImplementation("androidx.test:runner:1.6.2")\n    androidTestImplementation("androidx.test:rules:1.6.1")\n    androidTestImplementation("androidx.test.espresso:espresso-core:3.6.1")' android/app/build.gradle
+          python3 -c "
+          import os
+          path = 'android/app/build.gradle'
+          with open(path) as f:
+              lines = f.readlines()
+          out = []
+          for i, line in enumerate(lines):
+              out.append(line)
+              if 'versionName' in line and '1.0.0' in line:
+                  out.append('        testInstrumentationRunner \"androidx.test.runner.AndroidJUnitRunner\"\n')
+          with open(path, 'w') as f:
+              f.writelines(out)
+          test_deps = '\n'.join([
+              '',
+              '    androidTestImplementation(\"androidx.test.ext:junit:1.2.1\")',
+              '    androidTestImplementation(\"androidx.test:core:1.6.1\")',
+              '    androidTestImplementation(\"androidx.test:runner:1.6.2\")',
+              '    androidTestImplementation(\"androidx.test:rules:1.6.1\")',
+              '    androidTestImplementation(\"androidx.test.espresso:espresso-core:3.6.1\")',
+              '',
+          ])
+          with open(path, 'a') as f:
+              f.write(test_deps)
+          print('build.gradle updated for instrumented tests')
+          "
 
       - name: Enable KVM
         run: |
