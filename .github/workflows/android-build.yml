@@ -41,30 +41,71 @@ jobs:
           path: android/app/build/outputs/apk/release/app-release.apk
           retention-days: 30
 
-  firebase-test:
+  emulator-test:
     needs: build-android
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
-      - name: Download APK
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - run: npm ci
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: true
+
+      - name: Prebuild Android
+        run: npx expo prebuild --platform android
+
+      - name: Setup instrumented tests
+        run: |
+          mkdir -p android/app/src/androidTest/java/com/essayreader/app
+          cp e2e/android/BasicTest.kt android/app/src/androidTest/java/com/essayreader/app/
+          # Add testInstrumentationRunner
+          sed -i '/versionName "1.0.0"/a\        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"' android/app/build.gradle
+          # Add test dependencies before the closing } of dependencies block
+          sed -i '/^}$/i\    androidTestImplementation("androidx.test.ext:junit:1.2.1")\n    androidTestImplementation("androidx.test:core:1.6.1")\n    androidTestImplementation("androidx.test:runner:1.6.2")\n    androidTestImplementation("androidx.test:rules:1.6.1")\n    androidTestImplementation("androidx.test.espresso:espresso-core:3.6.1")' android/app/build.gradle
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Run instrumented tests on emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          arch: x86_64
+          disable-animations: true
+          disk-size: 6000M
+          heap-size: 600M
+          script: |
+            cd android
+            ./gradlew connectedDebugAndroidTest --build-cache --daemon
+
+      - name: Download APK artifact
         uses: actions/download-artifact@v4
         with:
           name: essay-reader-apk
+          path: ./
 
-      - name: Auth to Google Cloud
-        uses: google-github-actions/auth@v2
+      - name: Upload APK + test results
+        uses: actions/upload-artifact@v4
         with:
-          credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-
-      - name: Setup gcloud
-        uses: google-github-actions/setup-gcloud@v2
-
-      - name: List available devices
-        run: gcloud firebase test android models list --format="table(id, name, brand, form)" 2>&1 | head -30
-
-      - name: Run Firebase Test Lab (Robo)
-        run: |
-          gcloud firebase test android run \
-            --type robo \
-            --app app-release.apk \
-            --device model=Pixel2.arm,version=30,locale=en,orientation=portrait \
-            --timeout 5m
+          name: essay-reader-test-results
+          path: |
+            app-release.apk
+            android/app/build/reports/androidTests/
