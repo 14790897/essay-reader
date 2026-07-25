@@ -6,7 +6,7 @@ on:
 jobs:
   build-android:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
 
@@ -26,10 +26,7 @@ jobs:
       - name: Prebuild Android
         run: npx expo prebuild --platform android
 
-      - name: Disable New Architecture
-        run: node -e "const f=require('fs');const p='android/gradle.properties';const c=f.readFileSync(p,'utf8');f.writeFileSync(p,c.replace('newArchEnabled=true','newArchEnabled=false'))"
-
-      - name: Verify newArchEnabled is false
+      - name: Verify newArchEnabled from app.json
         run: grep newArchEnabled android/gradle.properties
 
       - name: Build APK
