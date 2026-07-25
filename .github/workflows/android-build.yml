@@ -58,10 +58,13 @@ jobs:
       - name: Setup gcloud
         uses: google-github-actions/setup-gcloud@v2
 
+      - name: List available devices
+        run: gcloud firebase test android models list --filter="osVersionId:30" --format="table[box](id, name, osVersionId, form)"
+
       - name: Run Firebase Test Lab (Robo)
         run: |
           gcloud firebase test android run \
             --type robo \
             --app app-release.apk \
-            --device model=NexusLowRes,version=30,locale=en,orientation=portrait \
+            --device model=Pixel6,version=33,locale=en,orientation=portrait \
             --timeout 5m
