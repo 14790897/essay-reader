@@ -27,7 +27,7 @@ jobs:
         run: npx expo prebuild --platform android
 
       - name: Disable New Architecture
-        run: sed -i 's/newArchEnabled=true/newArchEnabled=false/' android/gradle.properties
+        run: node -e "const f=require('fs');const p='android/gradle.properties';const c=f.readFileSync(p,'utf8');f.writeFileSync(p,c.replace('newArchEnabled=true','newArchEnabled=false'))"
 
       - name: Verify newArchEnabled is false
         run: grep newArchEnabled android/gradle.properties
