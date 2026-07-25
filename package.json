@@ -1,6 +1,6 @@
 {
   "name": "essay-reader",
-  "version": "1.0.12",
+  "version": "1.0.13",
   "main": "index.ts",
   "dependencies": {
     "@playwright/test": "^1.61.1",
