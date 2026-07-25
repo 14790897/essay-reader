@@ -114,8 +114,7 @@ jobs:
           disk-size: 6000M
           heap-size: 600M
           script: |
-            cd android
-            ./gradlew connectedDebugAndroidTest --build-cache --daemon
+            cd android && ./gradlew connectedDebugAndroidTest --build-cache --daemon
 
       - name: Download APK artifact
         uses: actions/download-artifact@v4
