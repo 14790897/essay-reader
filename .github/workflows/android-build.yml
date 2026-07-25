@@ -58,6 +58,9 @@ jobs:
       - name: Setup gcloud
         uses: google-github-actions/setup-gcloud@v2
 
+      - name: Create results bucket (if not exists)
+        run: gsutil mb -p hazel-core-389708 gs://essay-reader-test-results || true
+
       - name: Run Firebase Test Lab (Robo)
         run: |
           gcloud firebase test android run \
