@@ -58,15 +58,10 @@ jobs:
       - name: Setup gcloud
         uses: google-github-actions/setup-gcloud@v2
 
-      - name: Create results bucket (if not exists)
-        run: gsutil mb -p hazel-core-389708 gs://essay-reader-test-results || true
-
       - name: Run Firebase Test Lab (Robo)
         run: |
           gcloud firebase test android run \
             --type robo \
             --app app-release.apk \
-            --device model=Pixel2,version=30,locale=en,orientation=portrait \
-            --timeout 5m \
-            --results-bucket=essay-reader-test-results \
-            --results-dir="robo-$(date +%Y%m%d-%H%M%S)"
+            --device model=NexusLowRes,version=30,locale=en,orientation=portrait \
+            --timeout 5m
