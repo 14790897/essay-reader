@@ -25,6 +25,9 @@ jobs:
       - name: Prebuild Android
         run: npx expo prebuild --platform android
 
+      - name: Disable New Arch (fix expo-av JSI crash)
+        run: sed -i 's/newArchEnabled=true/newArchEnabled=false/' android/gradle.properties
+
       - name: Build APK
         working-directory: android
         run: ./gradlew assembleRelease
