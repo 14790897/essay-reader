@@ -66,5 +66,5 @@ jobs:
           gcloud firebase test android run \
             --type robo \
             --app app-release.apk \
-            --device model=Nexus5,version=23,locale=en,orientation=portrait \
+            --device model=Pixel2.arm,version=30,locale=en,orientation=portrait \
             --timeout 5m
