@@ -64,11 +64,7 @@ jobs:
             sleep 15
             FOREGROUND="$(adb shell dumpsys activity activities | grep mResumedActivity)"
             echo "Foreground: $FOREGROUND"
-            if ! echo "$FOREGROUND" | grep -q "com.essayreader"; then
-              echo "=== APP NOT IN FOREGROUND ==="
-              echo "=== Logcat (crashes/errors) ==="
-              adb logcat -d | grep -E "(AndroidRuntime|ReactNative|FATAL|crash)" | tail -60
-            fi
+            if ! echo "$FOREGROUND" | grep -q "com.essayreader"; then echo "=== APP NOT IN FOREGROUND ==="; echo "=== Logcat ==="; adb logcat -d | grep -E "(AndroidRuntime|ReactNative|FATAL|crash)" | tail -60; fi
             adb logcat -d > logcat.txt
             adb shell screencap -p /sdcard/screenshot.png
             adb pull /sdcard/screenshot.png .
@@ -156,7 +152,7 @@ jobs:
           disable-animations: true
           disk-size: 6000M
           heap-size: 600M
-          script: cd android && ./gradlew connectedDebugAndroidTest --build-cache --daemon
+          script: cd android && adb wait-for-device && ./gradlew connectedDebugAndroidTest --build-cache --daemon
 
       - name: Upload test report
         uses: actions/upload-artifact@v4
