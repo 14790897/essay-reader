@@ -27,12 +27,24 @@ jobs:
         with:
           cache-read-only: true
 
-      - name: Prebuild Android
-        run: npx expo prebuild --platform android
-      - name: Disable new architecture
-        run: sed -i 's/newArchEnabled=true/newArchEnabled=false/' android/gradle.properties
+   - name: Prebuild Android
+     run: npx expo prebuild --platform android
+   - name: Disable new architecture
+     run: sed -i 's/newArchEnabled=true/newArchEnabled=false/' android/gradle.properties
+    - name: Enable universal APK
+      run: |
+        python3 -c "
+        path = 'android/app/build.gradle'
+        with open(path) as f:
+            content = f.read()
+        old = \"    androidResources {\n        ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:!CVS:!thumbs.db:!picasa.ini:!*~'\n    }\n}\"
+        new = \"    androidResources {\n        ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:!CVS:!thumbs.db:!picasa.ini:!*~'\n    }\n    splits {\n        abi {\n            enable false\n            universalApk true\n        }\n    }\n}\"
+        content = content.replace(old, new)
+        with open(path, 'w') as f:
+            f.write(content)
+        "
 
-      - name: Build APK
+   - name: Build APK
         working-directory: android
         run: ./gradlew assembleRelease --build-cache
 
@@ -110,12 +122,24 @@ jobs:
         with:
           cache-read-only: true
 
-      - name: Prebuild Android
-        run: npx expo prebuild --platform android
-      - name: Disable new architecture
-        run: sed -i 's/newArchEnabled=true/newArchEnabled=false/' android/gradle.properties
+   - name: Prebuild Android
+     run: npx expo prebuild --platform android
+   - name: Disable new architecture
+     run: sed -i 's/newArchEnabled=true/newArchEnabled=false/' android/gradle.properties
+    - name: Enable universal APK
+      run: |
+        python3 -c "
+        path = 'android/app/build.gradle'
+        with open(path) as f:
+            content = f.read()
+        old = \"    androidResources {\n        ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:!CVS:!thumbs.db:!picasa.ini:!*~'\n    }\n}\"
+        new = \"    androidResources {\n        ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:!CVS:!thumbs.db:!picasa.ini:!*~'\n    }\n    splits {\n        abi {\n            enable false\n            universalApk true\n        }\n    }\n}\"
+        content = content.replace(old, new)
+        with open(path, 'w') as f:
+            f.write(content)
+        "
 
-      - name: Setup instrumented tests
+   - name: Setup instrumented tests
         run: |
           mkdir -p android/app/src/androidTest/java/com/essayreader/app
           cp e2e/android/BasicTest.kt android/app/src/androidTest/java/com/essayreader/app/
