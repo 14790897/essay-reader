@@ -34,13 +34,13 @@ jobs:
 
       - name: Build APK
         working-directory: android
-        run: ./gradlew assembleDebug --build-cache
+        run: ./gradlew assembleRelease --build-cache
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: essay-reader-apk
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          path: android/app/build/outputs/apk/release/app-release.apk
           retention-days: 30
 
   smoke-test:
@@ -61,7 +61,7 @@ jobs:
           disable-animations: true
           script: |
             adb logcat -c
-            adb install app-debug.apk
+            adb install app-release.apk
             adb shell am start -n com.essayreader.app/.MainActivity
             sleep 15
             FOREGROUND="$(adb shell dumpsys activity activities | grep mResumedActivity)"
