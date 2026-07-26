@@ -54,35 +54,54 @@ interface ParsedMsg {
   payload: Uint8Array | null;
 }
 
-function parseMessage(buf: ArrayBuffer): ParsedMsg {
-  const d = new DataView(buf);
-  let o = 0;
-  const vhs = d.getUint8(o++);
-  const mt = d.getUint8(o) >> 4;
-  const fl = d.getUint8(o++) & 0x0F;
-  o += 1;
-  o = (vhs & 0x0F) * 4;
+function parseMessage(buf: ArrayBuffer): ParsedMsg | null {
+  try {
+    if (buf.byteLength < 4) return null;
+    const d = new DataView(buf);
+    let o = 0;
+    const vhs = d.getUint8(o++);
+    const mt = d.getUint8(o) >> 4;
+    const fl = d.getUint8(o++) & 0x0F;
+    o += 1;
+    o = (vhs & 0x0F) * 4;
 
-  const m: ParsedMsg = { msgType: mt, flag: fl, event: 0, sessionId: '', connectId: '', sequence: 0, errorCode: 0, payload: null };
+    const m: ParsedMsg = { msgType: mt, flag: fl, event: 0, sessionId: '', connectId: '', sequence: 0, errorCode: 0, payload: null };
 
-  if ([1, 2, 9, 11, 12].includes(mt) && (fl === 1 || fl === 3)) { m.sequence = d.getInt32(o); o += 4; }
-  else if (mt === 15) { m.errorCode = d.getUint32(o); o += 4; }
+    if ([1, 2, 9, 11, 12].includes(mt) && (fl === 1 || fl === 3)) { m.sequence = d.getInt32(o); o += 4; }
+    else if (mt === 15) { m.errorCode = d.getUint32(o); o += 4; }
 
-  if (fl === 4) {
-    m.event = d.getInt32(o); o += 4;
-    if (![1, 2, 50, 51, 52].includes(m.event)) {
-      const sl = d.getUint32(o); o += 4;
-      if (sl > 0) { m.sessionId = new TextDecoder().decode(new Uint8Array(buf.slice(o, o + sl))); o += sl; }
+    if (fl === 4) {
+      if (o + 4 > buf.byteLength) return m;
+      m.event = d.getInt32(o); o += 4;
+      if (![1, 2, 50, 51, 52].includes(m.event)) {
+        if (o + 4 > buf.byteLength) return m;
+        const sl = d.getUint32(o); o += 4;
+        if (sl > 0) {
+          if (o + sl > buf.byteLength) return m;
+          m.sessionId = new TextDecoder().decode(new Uint8Array(buf.slice(o, o + sl))); o += sl;
+        }
+      }
+      if ([50, 51, 52].includes(m.event)) {
+        if (o + 4 > buf.byteLength) return m;
+        const cl = d.getUint32(o); o += 4;
+        if (cl > 0) {
+          if (o + cl > buf.byteLength) return m;
+          m.connectId = new TextDecoder().decode(new Uint8Array(buf.slice(o, o + cl))); o += cl;
+        }
+      }
     }
-    if ([50, 51, 52].includes(m.event)) {
-      const cl = d.getUint32(o); o += 4;
-      if (cl > 0) { m.connectId = new TextDecoder().decode(new Uint8Array(buf.slice(o, o + cl))); o += cl; }
+
+    if (o + 4 > buf.byteLength) return m;
+    const pl = d.getUint32(o); o += 4;
+    if (pl > 0) {
+      if (o + pl > buf.byteLength) return m;
+      m.payload = new Uint8Array(buf.slice(o, o + pl));
     }
+    return m;
+  } catch (e) {
+    console.warn("parseMessage error:", e);
+    return null;
   }
-
-  const pl = d.getUint32(o); o += 4;
-  if (pl > 0) { m.payload = new Uint8Array(buf.slice(o, o + pl)); }
-  return m;
 }
 
 type WSCallback = (data: any) => void;
@@ -98,6 +117,7 @@ export class DoubaoTTSClient {
   private onSubtitle?: WSCallback;
   private onDone?: WSCallback;
   private onError?: (err: Error) => void;
+  private sentFinish = false;
 
   constructor(private config: DoubaoConfig, callbacks: {
     onSentenceStart?: WSCallback; onSentenceEnd?: WSCallback;
@@ -113,8 +133,15 @@ export class DoubaoTTSClient {
   ): Promise<void> {
     return new Promise((resolve, reject) => {
       try {
+        if (!this.config.apiKey) {
+          reject(new Error('Doubao API key is empty'));
+          return;
+        }
+
         this.sessionId = this.uuid();
         const url = 'wss://openspeech.bytedance.com/api/v3/tts/bidirection';
+
+        console.log('[Doubao] Connecting to WebSocket...');
 
         this.ws = new (WebSocket as any)(url, undefined, {
           headers: {
@@ -124,41 +151,78 @@ export class DoubaoTTSClient {
         });
         (this.ws as any).binaryType = 'arraybuffer';
 
+        const done = (err?: Error) => {
+          if (this.sentFinish) return;
+          this.sentFinish = true;
+          if (err) {
+            this.onError?.(err);
+            reject(err);
+          } else {
+            resolve();
+          }
+        };
+
         this.ws!.onopen = () => {
-          this.ws!.send(marshalMsg(MsgType.FullClientRequest, Fl.WithEvent, Ev.StartConnection, null, '{}'));
+          console.log('[Doubao] WS connected, sending StartConnection');
+          try {
+            this.sendBinary(MsgType.FullClientRequest, Fl.WithEvent, Ev.StartConnection, null, '{}');
+          } catch (e) {
+            done(new Error('Failed to send StartConnection: ' + (e as Error).message));
+          }
         };
 
         this.ws!.onmessage = (event: MessageEvent) => {
-          const data = event.data;
-          let buf: ArrayBuffer | null = null;
-          if (data instanceof ArrayBuffer) buf = data;
-          else if (data instanceof Blob) {
-            data.arrayBuffer().then((ab) => {
-              const msg = parseMessage(ab);
-              this.handleBinaryMsg(msg, text, speaker, options, resolve, reject);
-            }).catch(reject);
-            return;
-          } else if (typeof data === 'string') {
-            buf = new TextEncoder().encode(data).buffer as ArrayBuffer;
-          }
-          if (buf) {
-            const msg = parseMessage(buf);
-            this.handleBinaryMsg(msg, text, speaker, options, resolve, reject);
+          try {
+            const data = event.data;
+            if (data instanceof ArrayBuffer) {
+              const msg = parseMessage(data);
+              if (msg) this.handleBinaryMsg(msg, text, speaker, options, done);
+            } else if (typeof Blob !== 'undefined' && data instanceof Blob) {
+              const reader = new FileReader();
+              reader.onload = () => {
+                try {
+                  const ab = reader.result as ArrayBuffer;
+                  const msg = parseMessage(ab);
+                  if (msg) this.handleBinaryMsg(msg, text, speaker, options, done);
+                } catch (e) {
+                  console.warn('[Doubao] FileReader onload error:', e);
+                }
+              };
+              reader.onerror = () => {
+                console.warn('[Doubao] FileReader error, trying fallback');
+                try {
+                  const ab = new ArrayBuffer(0);
+                  const msg = parseMessage(ab);
+                } catch {}
+              };
+              reader.readAsArrayBuffer(data);
+            } else if (typeof data === 'string') {
+              try {
+                const encoded = new TextEncoder().encode(data);
+                const msg = parseMessage(encoded.buffer as ArrayBuffer);
+                if (msg) this.handleBinaryMsg(msg, text, speaker, options, done);
+              } catch (e) {
+                console.warn('[Doubao] string data parse error:', e);
+              }
+            }
+          } catch (e) {
+            console.warn('[Doubao] onmessage error:', e);
           }
         };
 
         this.ws!.onerror = (error: any) => {
-          const err = new Error('WebSocket error: ' + (error.message || 'unknown'));
-          this.onError?.(err);
-          reject(err);
+          console.warn('[Doubao] WS error:', error?.message || error);
+          done(new Error('WebSocket connection error'));
         };
 
         this.ws!.onclose = () => {
-          if (this.audioChunks.length === 0) {
-            reject(new Error('No audio received'));
+          console.log('[Doubao] WS closed');
+          if (!this.sentFinish && this.audioChunks.length === 0) {
+            done(new Error('No audio received - check API key and network'));
           }
         };
       } catch (err) {
+        console.warn('[Doubao] synthesize error:', err);
         reject(err);
       }
     });
@@ -166,63 +230,69 @@ export class DoubaoTTSClient {
 
   private handleBinaryMsg(
     msg: ParsedMsg, text: string, speaker: string, options: any,
-    resolve: () => void, reject: (err: Error) => void
+    done: (err?: Error) => void
   ) {
-    if (msg.msgType === 11) {
-      if (msg.payload) this.audioChunks.push(msg.payload.buffer as ArrayBuffer);
-      return;
-    }
-
-    if (msg.msgType === 15) {
-      const pl = msg.payload ? new TextDecoder().decode(msg.payload) : '';
-      let errMsg = 'TTS Error';
-      try { const j = JSON.parse(pl); errMsg = j.error || errMsg; } catch {}
-      const err = new Error(errMsg);
-      this.onError?.(err);
-      reject(err);
-      return;
-    }
-
-    const rawPayload = msg.payload ? new TextDecoder().decode(msg.payload) : '{}';
-    let pl: any = {};
-    try { pl = JSON.parse(rawPayload); } catch {}
-
-    switch (msg.event) {
-      case Ev.ConnectionStarted: {
-        const startReq = JSON.stringify({ event: Ev.StartSession, req_params: { speaker, audio_params: { format: options?.format || 'mp3', sample_rate: 24000, speech_rate: options?.speechRate ?? 0, loudness_rate: options?.loudnessRate ?? 0, enable_subtitle: options?.enableSubtitle ?? false }, post_process: typeof options?.pitch === 'number' ? { pitch: options.pitch } : undefined } });
-        this.sendBinary(MsgType.FullClientRequest, Fl.WithEvent, Ev.StartSession, this.sessionId, startReq);
-        break;
+    try {
+      if (msg.msgType === 11) {
+        if (msg.payload) this.audioChunks.push(msg.payload.buffer as ArrayBuffer);
+        return;
       }
-      case Ev.SessionStarted: {
-        const taskReq = JSON.stringify({ event: Ev.TaskRequest, req_params: { speaker, text, audio_params: { format: options?.format || 'mp3', sample_rate: 24000, speech_rate: options?.speechRate ?? 0, loudness_rate: options?.loudnessRate ?? 0, enable_subtitle: options?.enableSubtitle ?? false }, post_process: typeof options?.pitch === 'number' ? { pitch: options.pitch } : undefined } });
-        this.sendBinary(MsgType.FullClientRequest, Fl.WithEvent, Ev.TaskRequest, this.sessionId, taskReq);
-        this.sendBinary(MsgType.FullClientRequest, Fl.WithEvent, Ev.FinishSession, this.sessionId, '{}');
-        break;
+
+      if (msg.msgType === 15) {
+        const pl = msg.payload ? new TextDecoder().decode(msg.payload) : '';
+        let errMsg = 'TTS Error';
+        try { const j = JSON.parse(pl); errMsg = j.error || errMsg; } catch {}
+        done(new Error(errMsg));
+        return;
       }
-      case Ev.TTSSentenceStart: this.onSentenceStart?.(pl); break;
-      case Ev.TTSSentenceEnd: this.onSentenceEnd?.(pl); break;
-      case Ev.TTSSubtitle: if (pl?.words) { this.words.push(...pl.words); } this.onSubtitle?.(pl); break;
-      case Ev.SessionFinished:
-        this.sendBinary(MsgType.FullClientRequest, Fl.WithEvent, Ev.FinishConnection, null, '{}');
-        break;
-      case Ev.ConnectionFinished:
-        this.onDone?.({ words: this.words });
-        resolve();
-        break;
-      case Ev.ConnectionFailed:
-      case Ev.SessionFailed: {
-        const errMsg2 = pl?.message || rawPayload || 'TTS Failed';
-        const err2 = new Error(errMsg2);
-        this.onError?.(err2);
-        reject(err2);
-        break;
+
+      const rawPayload = msg.payload ? new TextDecoder().decode(msg.payload) : '{}';
+      let pl: any = {};
+      try { pl = JSON.parse(rawPayload); } catch {}
+
+      console.log('[Doubao] Event:', EvNames[msg.event] || msg.event, 'type:', msg.msgType);
+
+      switch (msg.event) {
+        case Ev.ConnectionStarted: {
+          const startReq = JSON.stringify({ event: Ev.StartSession, req_params: { speaker, audio_params: { format: options?.format || 'mp3', sample_rate: 24000, speech_rate: options?.speechRate ?? 0, loudness_rate: options?.loudnessRate ?? 0, enable_subtitle: options?.enableSubtitle ?? false }, post_process: typeof options?.pitch === 'number' ? { pitch: options.pitch } : undefined } });
+          this.sendBinary(MsgType.FullClientRequest, Fl.WithEvent, Ev.StartSession, this.sessionId, startReq);
+          break;
+        }
+        case Ev.SessionStarted: {
+          const taskReq = JSON.stringify({ event: Ev.TaskRequest, req_params: { speaker, text, audio_params: { format: options?.format || 'mp3', sample_rate: 24000, speech_rate: options?.speechRate ?? 0, loudness_rate: options?.loudnessRate ?? 0, enable_subtitle: options?.enableSubtitle ?? false }, post_process: typeof options?.pitch === 'number' ? { pitch: options.pitch } : undefined } });
+          this.sendBinary(MsgType.FullClientRequest, Fl.WithEvent, Ev.TaskRequest, this.sessionId, taskReq);
+          this.sendBinary(MsgType.FullClientRequest, Fl.WithEvent, Ev.FinishSession, this.sessionId, '{}');
+          break;
+        }
+        case Ev.TTSSentenceStart: this.onSentenceStart?.(pl); break;
+        case Ev.TTSSentenceEnd: this.onSentenceEnd?.(pl); break;
+        case Ev.TTSSubtitle: if (pl?.words) { this.words.push(...pl.words); } this.onSubtitle?.(pl); break;
+        case Ev.SessionFinished:
+          this.sendBinary(MsgType.FullClientRequest, Fl.WithEvent, Ev.FinishConnection, null, '{}');
+          break;
+        case Ev.ConnectionFinished:
+          this.onDone?.({ words: this.words });
+          done();
+          break;
+        case Ev.ConnectionFailed:
+        case Ev.SessionFailed: {
+          const errMsg2 = pl?.message || rawPayload || 'TTS Failed';
+          done(new Error(errMsg2));
+          break;
+        }
       }
+    } catch (e) {
+      console.warn('[Doubao] handleBinaryMsg error:', e);
     }
   }
 
   private sendBinary(msgType: number, flag: number, event: number, sid: string | null, pl: string) {
     if (this.ws?.readyState === WebSocket.OPEN) {
-      this.ws.send(marshalMsg(msgType, flag, event, sid, pl));
+      try {
+        this.ws.send(marshalMsg(msgType, flag, event, sid, pl));
+      } catch (e) {
+        console.warn('[Doubao] sendBinary error:', e);
+      }
     }
   }
 
@@ -239,18 +309,14 @@ export class DoubaoTTSClient {
   }
 
   getAudioBase64(): string {
-    const totalSize = this.audioChunks.reduce((sum, c) => sum + c.byteLength, 0);
-    const merged = new Uint8Array(totalSize);
-    let offset = 0;
-    for (const chunk of this.audioChunks) {
-      merged.set(new Uint8Array(chunk), offset);
-      offset += chunk.byteLength;
-    }
-    return base64FromArrayBuffer(merged.buffer);
+    const bytes = this.getAudioBytes();
+    if (!bytes) return '';
+    return base64FromArrayBuffer(bytes.buffer as ArrayBuffer);
   }
 
   cancel() {
-    this.ws?.close();
+    this.sentFinish = true;
+    try { this.ws?.close(); } catch {}
     this.ws = null;
   }
 
