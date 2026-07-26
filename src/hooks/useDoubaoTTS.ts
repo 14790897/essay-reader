@@ -117,7 +117,7 @@ export function useDoubaoTTS(options: UseDoubaoTTSOptions) {
   const playAudio = useCallback(async (base64: string) => {
     await unloadSound();
     await setAudioModeAsync({
-      playsInSilentModeIOS: true,
+      playsInSilentMode: true,
       shouldPlayInBackground: true,
       interruptionModeAndroid: "duckOthers",
     });
