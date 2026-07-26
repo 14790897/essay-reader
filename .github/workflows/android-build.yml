@@ -29,6 +29,8 @@ jobs:
 
       - name: Prebuild Android
         run: npx expo prebuild --platform android
+      - name: Disable new architecture
+        run: sed -i 's/newArchEnabled=true/newArchEnabled=false/' android/gradle.properties
 
       - name: Build APK
         working-directory: android
@@ -110,6 +112,8 @@ jobs:
 
       - name: Prebuild Android
         run: npx expo prebuild --platform android
+      - name: Disable new architecture
+        run: sed -i 's/newArchEnabled=true/newArchEnabled=false/' android/gradle.properties
 
       - name: Setup instrumented tests
         run: |
