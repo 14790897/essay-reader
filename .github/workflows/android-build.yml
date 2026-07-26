@@ -31,19 +31,10 @@ jobs:
         run: npx expo prebuild --platform android
       - name: Disable new architecture
         run: sed -i 's/newArchEnabled=true/newArchEnabled=false/' android/gradle.properties
-      - name: Enable universal APK
-        run: |
-          python3 -c "
-          path = 'android/app/build.gradle'
-          with open(path) as f: content = f.read()
-          content = content.replace(
-            '    androidResources {\n        ignoreAssetsPattern '!'!.svn:!.git:!.ds_store:!*.scc:!CVS:!thumbs.db:!picasa.ini:!*~'!'\n    }\n}',
-            '    androidResources {\n        ignoreAssetsPattern '!'!.svn:!.git:!.ds_store:!*.scc:!CVS:!thumbs.db:!picasa.ini:!*~'!'\n    }\n    splits {\n        abi {\n            enable false\n            universalApk true\n        }\n    }\n}'
-          )
-          with open(path, 'w') as f: f.write(content)
-          "
+     - name: Enable universal APK
+        run: python3 scripts/enable-universal-apk.py
 
-      - name: Build APK
+     - name: Build APK
         working-directory: android
         run: ./gradlew assembleRelease --build-cache
 
@@ -124,20 +115,11 @@ jobs:
       - name: Prebuild Android
         run: npx expo prebuild --platform android
       - name: Disable new architecture
-        run: sed -i 's/newArchEnabled=true/newArchEnabled=false/' android/gradle.properties
-      - name: Enable universal APK
-        run: |
-          python3 -c "
-          path = 'android/app/build.gradle'
-          with open(path) as f: content = f.read()
-          content = content.replace(
-            '    androidResources {\n        ignoreAssetsPattern '!'!.svn:!.git:!.ds_store:!*.scc:!CVS:!thumbs.db:!picasa.ini:!*~'!'\n    }\n}',
-            '    androidResources {\n        ignoreAssetsPattern '!'!.svn:!.git:!.ds_store:!*.scc:!CVS:!thumbs.db:!picasa.ini:!*~'!'\n    }\n    splits {\n        abi {\n            enable false\n            universalApk true\n        }\n    }\n}'
-          )
-          with open(path, 'w') as f: f.write(content)
-          "
+       run: sed -i 's/newArchEnabled=true/newArchEnabled=false/' android/gradle.properties
+     - name: Enable universal APK
+        run: python3 scripts/enable-universal-apk.py
 
-      - name: Setup instrumented tests
+     - name: Setup instrumented tests
         run: |
           mkdir -p android/app/src/androidTest/java/com/essayreader/app
           cp e2e/android/BasicTest.kt android/app/src/androidTest/java/com/essayreader/app/
