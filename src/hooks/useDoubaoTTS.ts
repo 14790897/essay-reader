@@ -1,6 +1,7 @@
-import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
-import { Audio } from 'expo-av';
-import { DoubaoTTSClient, type DoubaoConfig } from '../services/doubaoTTS';
+import { useState, useRef, useCallback, useEffect, useMemo } from "react";
+import { createAudioPlayer, setAudioModeAsync } from "expo-audio";
+import type { AudioPlayer } from "expo-audio";
+import { DoubaoTTSClient, type DoubaoConfig } from "../services/doubaoTTS";
 
 interface UseDoubaoTTSOptions {
   config: DoubaoConfig | null;
@@ -19,10 +20,10 @@ export function useDoubaoTTS(options: UseDoubaoTTSOptions) {
   const [currentSentenceIndex, setCurrentSentenceIndex] = useState(0);
 
   const clientRef = useRef<DoubaoTTSClient | null>(null);
-  const soundRef = useRef<Audio.Sound | null>(null);
+  const playerRef = useRef<AudioPlayer | null>(null);
   const sentenceCountRef = useRef(0);
   const sentenceIdxRef = useRef(0);
-  const textRef = useRef('');
+  const textRef = useRef("");
   const optionsRef = useRef(options);
   optionsRef.current = options;
 
@@ -33,9 +34,9 @@ export function useDoubaoTTS(options: UseDoubaoTTSOptions) {
   }, []);
 
   const unloadSound = useCallback(async () => {
-    if (soundRef.current) {
-      try { await soundRef.current.unloadAsync(); } catch {}
-      soundRef.current = null;
+    if (playerRef.current) {
+      try { playerRef.current.release(); } catch {}
+      playerRef.current = null;
     }
   }, []);
 
@@ -68,12 +69,12 @@ export function useDoubaoTTS(options: UseDoubaoTTSOptions) {
     try {
       const client = new DoubaoTTSClient(opts.config, {
         onSentenceStart: (payload: any) => {
-          opts.onSentenceStart?.(payload?.text || '');
+          opts.onSentenceStart?.(payload?.text || "");
         },
         onSentenceEnd: (payload: any) => {
           sentenceIdxRef.current++;
           setCurrentSentenceIndex(sentenceIdxRef.current);
-          opts.onSentenceEnd?.(payload?.text || '');
+          opts.onSentenceEnd?.(payload?.text || "");
         },
         onDone: () => {
           setIsSpeaking(false);
@@ -89,7 +90,7 @@ export function useDoubaoTTS(options: UseDoubaoTTSOptions) {
           opts.onDone?.();
         },
         onError: (err: Error) => {
-          console.error('Doubao TTS error:', err);
+          console.error("Doubao TTS error:", err);
           setIsSpeaking(false);
           setIsLoading(false);
         },
@@ -100,16 +101,14 @@ export function useDoubaoTTS(options: UseDoubaoTTSOptions) {
       const rate = opts.speedRatio ?? 1.0;
       const speechRate = Math.round((rate - 1) * 50);
 
-      await client.synthesize(text, opts.speaker || 'zh_female_gaolengyujie_uranus_bigtts', {
-        format: 'mp3',
+      await client.synthesize(text, opts.speaker || "zh_female_gaolengyujie_uranus_bigtts", {
+        format: "mp3",
         speechRate,
         pitch: opts.pitch,
         enableSubtitle: true,
       });
-
-      // Audio is played in onDone callback
     } catch (error) {
-      console.error('Doubao TTS error:', error);
+      console.error("Doubao TTS error:", error);
       setIsSpeaking(false);
       setIsLoading(false);
     }
@@ -117,35 +116,37 @@ export function useDoubaoTTS(options: UseDoubaoTTSOptions) {
 
   const playAudio = useCallback(async (base64: string) => {
     await unloadSound();
-    await Audio.setAudioModeAsync({
+    await setAudioModeAsync({
       playsInSilentModeIOS: true,
-      staysActiveInBackground: true,
-      shouldDuckAndroid: true,
+      shouldPlayInBackground: true,
+      interruptionModeAndroid: "duckOthers",
     });
 
-    const { sound } = await Audio.Sound.createAsync(
+    const player = createAudioPlayer(
       { uri: `data:audio/mp3;base64,${base64}` },
-      { shouldPlay: true },
-      (status: any) => {
-        if (status.didJustFinish) {
-          setIsSpeaking(false);
-          setIsPaused(false);
-        }
-      }
     );
-    soundRef.current = sound;
+    playerRef.current = player;
+
+    player.addListener("playbackStatusUpdate", (status) => {
+      if (status.didJustFinish) {
+        setIsSpeaking(false);
+        setIsPaused(false);
+      }
+    });
+
+    player.play();
   }, [unloadSound]);
 
   const pause = useCallback(async () => {
-    if (soundRef.current) {
-      await soundRef.current.pauseAsync();
+    if (playerRef.current) {
+      playerRef.current.pause();
       setIsPaused(true);
     }
   }, []);
 
   const resume = useCallback(async () => {
-    if (soundRef.current) {
-      await soundRef.current.playAsync();
+    if (playerRef.current) {
+      playerRef.current.play();
       setIsPaused(false);
     }
   }, []);
