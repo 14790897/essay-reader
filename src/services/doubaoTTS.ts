@@ -226,6 +226,18 @@ export class DoubaoTTSClient {
     }
   }
 
+  getAudioBytes(): Uint8Array | null {
+    if (this.audioChunks.length === 0) return null;
+    const totalSize = this.audioChunks.reduce((sum, c) => sum + c.byteLength, 0);
+    const merged = new Uint8Array(totalSize);
+    let offset = 0;
+    for (const chunk of this.audioChunks) {
+      merged.set(new Uint8Array(chunk), offset);
+      offset += chunk.byteLength;
+    }
+    return merged;
+  }
+
   getAudioBase64(): string {
     const totalSize = this.audioChunks.reduce((sum, c) => sum + c.byteLength, 0);
     const merged = new Uint8Array(totalSize);

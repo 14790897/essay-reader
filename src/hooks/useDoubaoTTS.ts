@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { createAudioPlayer, setAudioModeAsync } from "expo-audio";
-import type { AudioPlayer } from "expo-audio";
+import type { AudioPlayer, AudioStatus } from "expo-audio";
+import { Paths, File } from "expo-file-system";
 import { DoubaoTTSClient, type DoubaoConfig } from "../services/doubaoTTS";
 
 interface UseDoubaoTTSOptions {
@@ -33,7 +34,7 @@ export function useDoubaoTTS(options: UseDoubaoTTSOptions) {
     return matches || [text];
   }, []);
 
-  const unloadSound = useCallback(async () => {
+  const unloadPlayer = useCallback(async () => {
     if (playerRef.current) {
       try { playerRef.current.release(); } catch {}
       playerRef.current = null;
@@ -47,8 +48,8 @@ export function useDoubaoTTS(options: UseDoubaoTTSOptions) {
     setIsPaused(false);
     setIsLoading(false);
     setCurrentSentenceIndex(0);
-    await unloadSound();
-  }, [unloadSound]);
+    await unloadPlayer();
+  }, [unloadPlayer]);
 
   const speak = useCallback(async (text: string) => {
     const opts = optionsRef.current;
@@ -76,15 +77,19 @@ export function useDoubaoTTS(options: UseDoubaoTTSOptions) {
           setCurrentSentenceIndex(sentenceIdxRef.current);
           opts.onSentenceEnd?.(payload?.text || "");
         },
-        onDone: () => {
-          setIsSpeaking(false);
-          setIsPaused(false);
+        onDone: async () => {
           setIsLoading(false);
 
           if (clientRef.current) {
-            const audioBase64 = clientRef.current.getAudioBase64();
-            if (audioBase64) {
-              playAudio(audioBase64);
+            const audioBytes = clientRef.current.getAudioBytes();
+            if (audioBytes && audioBytes.byteLength > 0) {
+              try {
+                const cacheFile = new File(Paths.cache, "doubao_tts.mp3");
+                cacheFile.write(audioBytes);
+                await playFromUri(cacheFile.uri);
+              } catch (e) {
+                console.error("Failed to play audio:", e);
+              }
             }
           }
           opts.onDone?.();
@@ -114,28 +119,28 @@ export function useDoubaoTTS(options: UseDoubaoTTSOptions) {
     }
   }, [splitSentences, stopSpeaking]);
 
-  const playAudio = useCallback(async (base64: string) => {
-    await unloadSound();
+  const playFromUri = useCallback(async (uri: string) => {
+    await unloadPlayer();
+
     await setAudioModeAsync({
       playsInSilentMode: true,
       shouldPlayInBackground: true,
       interruptionModeAndroid: "duckOthers",
-    });
+    } as any);
 
-    const player = createAudioPlayer(
-      { uri: `data:audio/mp3;base64,${base64}` },
-    );
+    const player = createAudioPlayer({ uri });
     playerRef.current = player;
 
-    player.addListener("playbackStatusUpdate", (status) => {
-      if (status.didJustFinish) {
+    player.addListener("playbackStatusUpdate", (status: AudioStatus) => {
+      if (status.didJustFinish && !status.playing) {
         setIsSpeaking(false);
         setIsPaused(false);
       }
     });
 
-    player.play();
-  }, [unloadSound]);
+    await player.play();
+    setIsPaused(false);
+  }, [unloadPlayer]);
 
   const pause = useCallback(async () => {
     if (playerRef.current) {
@@ -154,9 +159,9 @@ export function useDoubaoTTS(options: UseDoubaoTTSOptions) {
   useEffect(() => {
     return () => {
       clientRef.current?.cancel();
-      unloadSound();
+      unloadPlayer();
     };
-  }, [unloadSound]);
+  }, [unloadPlayer]);
 
   const sentenceBoundaries = useMemo(() => {
     const text = textRef.current;
