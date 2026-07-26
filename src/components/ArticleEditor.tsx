@@ -43,16 +43,25 @@ export default function ArticleEditor({
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
       <KeyboardAvoidingView
         style={styles.container}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <View style={styles.header}>
-          <TouchableOpacity onPress={onClose} style={styles.headerBtn}>
+          <TouchableOpacity
+            onPress={onClose}
+            style={styles.headerBtn}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
             <Text style={styles.cancelText}>Cancel</Text>
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>
+          <Text style={styles.headerTitle} numberOfLines={1}>
             {initialTitle ? 'Edit Article' : 'New Article'}
           </Text>
-          <TouchableOpacity onPress={handleSave} style={styles.headerBtn}>
+          <TouchableOpacity
+            onPress={handleSave}
+            style={styles.headerBtn}
+            disabled={!content.trim()}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
             <Text testID="editor-save-btn" style={[styles.saveText, !content.trim() && styles.disabled]}>
               Save
             </Text>
@@ -60,7 +69,7 @@ export default function ArticleEditor({
         </View>
 
         <ScrollView style={styles.body} keyboardShouldPersistTaps="handled">
-        <TextInput
+          <TextInput
             testID="editor-title-input"
             style={styles.titleInput}
             placeholder="Article Title"
@@ -69,7 +78,7 @@ export default function ArticleEditor({
             onChangeText={setTitle}
             maxLength={200}
           />
-        <TextInput
+          <TextInput
             testID="editor-content-input"
             style={styles.contentInput}
             placeholder="Paste or type your article here..."
@@ -81,6 +90,18 @@ export default function ArticleEditor({
             autoFocus={!initialContent}
           />
         </ScrollView>
+
+        <View style={styles.bottomBar}>
+          <TouchableOpacity
+            testID="editor-save-bottom"
+            style={[styles.saveBtn, !content.trim() && styles.saveBtnDisabled]}
+            onPress={handleSave}
+            disabled={!content.trim()}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.saveBtnText}>Save Article</Text>
+          </TouchableOpacity>
+        </View>
       </KeyboardAvoidingView>
     </Modal>
   );
@@ -100,15 +121,22 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: '#e0e0e0',
+    backgroundColor: '#fff',
+    zIndex: 10,
   },
   headerBtn: {
-    paddingVertical: 4,
-    paddingHorizontal: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    minWidth: 60,
+    alignItems: 'center',
   },
   headerTitle: {
+    flex: 1,
     fontSize: 17,
     fontWeight: '600',
     color: '#1a1a1a',
+    textAlign: 'center',
+    marginHorizontal: 8,
   },
   cancelText: {
     fontSize: 16,
@@ -139,6 +167,29 @@ const styles = StyleSheet.create({
     fontSize: 17,
     lineHeight: 28,
     color: '#333',
-    minHeight: 300,
+    minHeight: 200,
+  },
+  bottomBar: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    paddingBottom: Platform.OS === 'ios' ? 34 : 16,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#e0e0e0',
+    backgroundColor: '#fff',
+  },
+  saveBtn: {
+    backgroundColor: '#007AFF',
+    borderRadius: 10,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  saveBtnDisabled: {
+    backgroundColor: '#007AFF',
+    opacity: 0.4,
+  },
+  saveBtnText: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: '#fff',
   },
 });
