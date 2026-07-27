@@ -83,6 +83,7 @@ jobs:
           emulator-options: -no-snapshot -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -netdelay none -netspeed full
           script: |
             adb wait-for-device
+            sleep 5
             adb logcat -c
             adb install -t app-release.apk
             adb shell am start -n com.essayreader.app/.MainActivity
@@ -94,7 +95,7 @@ jobs:
               echo "=== Package check ==="
               adb shell pm list packages | grep essay || true
               echo "=== Logcat errors ==="
-              adb logcat -d | grep -E "(AndroidRuntime|ReactNative|FATAL|crash|System.err)" | tail -60
+              adb logcat -d | grep -E "(AndroidRuntime|ReactNative|FATAL|System.err)" | tail -60
             fi
             adb logcat -d > logcat.txt
             adb shell screencap -p /sdcard/screenshot.png
