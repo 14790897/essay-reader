@@ -38,6 +38,19 @@ jobs:
         with:
           path: dist/
 
+  test-doubao-rest:
+    needs: check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Smoke test Doubao REST TTS
+        run: node e2e/doubao-rest.smoke.cjs
+        env:
+          DOUBAO_API_KEY: ${{ secrets.DOUBAO_API_KEY }}
+
   deploy-web:
     needs: build-web
     runs-on: ubuntu-latest
