@@ -88,15 +88,9 @@ jobs:
             adb install -t app-release.apk
             adb shell am start -n com.essayreader.app/.MainActivity
             sleep 25
-            FOREGROUND="$(adb shell dumpsys activity activities | grep mResumedActivity || adb shell dumpsys window | grep mCurrentFocus)"
+            FOREGROUND=$(adb shell dumpsys activity activities | grep mResumedActivity || adb shell dumpsys window | grep mCurrentFocus)
             echo "Foreground: $FOREGROUND"
-            if ! echo "$FOREGROUND" | grep -q "com.essayreader"; then
-              echo "=== APP NOT IN FOREGROUND ==="
-              echo "=== Package check ==="
-              adb shell pm list packages | grep essay || true
-              echo "=== Logcat errors ==="
-              adb logcat -d | grep -E "(AndroidRuntime|ReactNative|FATAL|System.err)" | tail -60
-            fi
+            echo $FOREGROUND | grep -q com.essayreader || { echo '=== APP NOT IN FOREGROUND ==='; echo '=== Package check ==='; adb shell pm list packages | grep essay || true; echo '=== Logcat errors ==='; adb logcat -d | grep -E '(AndroidRuntime|ReactNative|FATAL|System.err)' | tail -60; }
             adb logcat -d > logcat.txt
             adb shell screencap -p /sdcard/screenshot.png
             adb pull /sdcard/screenshot.png .
