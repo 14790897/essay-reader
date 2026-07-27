@@ -26,7 +26,7 @@ export default function App() {
   const [doubaoConfig, setDoubaoConfig] = useState<DoubaoConfig>({
    apiKey: '',
    resourceId: 'seed-tts-2.0',
-    proxyUrl: 'https://proxy.14790897.xyz/proxy',
+    proxyUrl: 'https://proxy.14790897.xyz/proxy/',
  });
   const [doubaoSpeaker, setDoubaoSpeaker] = useState('zh_female_gaolengyujie_uranus_bigtts');
 

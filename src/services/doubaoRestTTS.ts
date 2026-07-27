@@ -41,7 +41,7 @@ export async function synthesizeRest(
   config: DoubaoConfig,
   _options?: { speechRate?: number; pitch?: number }
 ): Promise<TTSResult> {
-  const endpoint = config.proxyUrl || TTS_ENDPOINT;
+  const endpoint = config.proxyUrl ? config.proxyUrl + TTS_ENDPOINT : TTS_ENDPOINT;
   const response = await fetch(endpoint, {
     method: 'POST',
     headers: {

@@ -140,7 +140,7 @@ export default function Settings({
                   style={styles.textInput}
                   value={doubaoConfig.proxyUrl || ''}
                   onChangeText={(v) => updateDoubaoField('proxyUrl', v)}
-                  placeholder="e.g. /api/doubao-proxy or https://my-proxy.vercel.app"
+                  placeholder="e.g. https://my-proxy.xyz/proxy/"
                   placeholderTextColor="#bbb"
                   autoCapitalize="none"
                 />
