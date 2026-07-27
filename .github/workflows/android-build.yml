@@ -113,7 +113,7 @@ jobs:
   instrumented-test:
     needs: build-android
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
 
@@ -181,7 +181,11 @@ jobs:
           disable-animations: true
           disk-size: 6000M
           heap-size: 600M
-          script: cd android && adb wait-for-device && ./gradlew connectedDebugAndroidTest --build-cache --daemon
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+          script: |
+            adb wait-for-device
+            ./gradlew connectedDebugAndroidTest --build-cache --daemon
+        working-directory: android
 
       - name: Upload test report
         uses: actions/upload-artifact@v4
