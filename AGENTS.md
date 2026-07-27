@@ -58,7 +58,7 @@ npx expo export --platform web --output-dir dist
 
 ## Testing Doubao TTS
 node test-run.js -> test-output.mp3
-API key: 0348cc4e-6e60-4a0f-b1ce-142d00b98350
+Set DOUBAO_API_KEY env var before running.
 
 ## Important
 - NEVER replace binary protocol with plain JSON in doubaoTTS.ts

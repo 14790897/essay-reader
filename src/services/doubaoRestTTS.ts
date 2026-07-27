@@ -65,13 +65,22 @@ export async function synthesizeRest(
   if (!text.trim()) return { audioBase64: '', durationMs: '0' };
 
   const endpoint = config.proxyUrl ? buildProxyUrl(config.proxyUrl, TTS_ENDPOINT) : TTS_ENDPOINT;
+  const isProxied = !!config.proxyUrl;
+
+  // When proxied, don't send empty auth headers — let the proxy supply its own.
+  // This also avoids triggering CORS preflight for custom headers in browsers.
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (!isProxied) {
+    headers['X-Api-Key'] = config.apiKey;
+    headers['X-Api-Resource-Id'] = config.resourceId || 'seed-tts-2.0';
+  } else if (config.apiKey) {
+    // Only send user's key when present and using proxy
+    headers['X-Api-Key'] = config.apiKey;
+  }
+
   const response = await fetch(endpoint, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Api-Key': config.apiKey,
-      'X-Api-Resource-Id': config.resourceId || 'seed-tts-2.0',
-    },
+    headers,
     body: JSON.stringify({
       app: { appid: 'essay-reader', token: 'access_token', cluster: 'volcano_tts' },
       user: { uid: 'web-user' },
@@ -104,6 +113,15 @@ export async function synthesizeRestProgressive(
   if (!text.trim()) return { audioBase64: '', durationMs: '0' };
 
   const endpoint = config.proxyUrl ? buildProxyUrl(config.proxyUrl, TTS_ENDPOINT) : TTS_ENDPOINT;
+  const isProxied = !!config.proxyUrl;
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (!isProxied) {
+    headers['X-Api-Key'] = config.apiKey;
+    headers['X-Api-Resource-Id'] = config.resourceId || 'seed-tts-2.0';
+  } else if (config.apiKey) {
+    headers['X-Api-Key'] = config.apiKey;
+  }
+
   const sentences = splitIntoSentences(text);
   const allChunks: Uint8Array[] = [];
 
@@ -113,11 +131,7 @@ export async function synthesizeRestProgressive(
 
     const response = await fetch(endpoint, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Api-Key': config.apiKey,
-        'X-Api-Resource-Id': config.resourceId || 'seed-tts-2.0',
-      },
+      headers,
       body: JSON.stringify({
         app: { appid: 'essay-reader', token: 'access_token', cluster: 'volcano_tts' },
         user: { uid: 'web-user' },
