@@ -24,9 +24,10 @@ export default function App() {
   const [editContent, setEditContent] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [doubaoConfig, setDoubaoConfig] = useState<DoubaoConfig>({
-    apiKey: '',
-    resourceId: 'seed-tts-2.0',
-  });
+   apiKey: '',
+   resourceId: 'seed-tts-2.0',
+    proxyUrl: '',
+ });
   const [doubaoSpeaker, setDoubaoSpeaker] = useState('zh_female_gaolengyujie_uranus_bigtts');
 
  const progressRef = useRef(0);

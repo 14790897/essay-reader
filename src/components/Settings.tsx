@@ -129,7 +129,18 @@ export default function Settings({
                   style={styles.textInput}
                   value={doubaoConfig.resourceId}
                   onChangeText={(v) => updateDoubaoField('resourceId', v)}
-                  placeholder="seed-tts-2.0"
+                 placeholder="seed-tts-2.0"
+                 placeholderTextColor="#bbb"
+                 autoCapitalize="none"
+               />
+
+                <Text style={styles.inputLabel}>Proxy URL (web only)</Text>
+                <TextInput
+                  testID="doubao-proxy-url-input"
+                  style={styles.textInput}
+                  value={doubaoConfig.proxyUrl || ''}
+                  onChangeText={(v) => updateDoubaoField('proxyUrl', v)}
+                  placeholder="e.g. /api/doubao-proxy or https://my-proxy.vercel.app"
                   placeholderTextColor="#bbb"
                   autoCapitalize="none"
                 />

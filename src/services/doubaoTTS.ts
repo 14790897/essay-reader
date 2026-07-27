@@ -6,6 +6,7 @@
 export interface DoubaoConfig {
   apiKey: string;
   resourceId: string;
+  proxyUrl: string;
 }
 
 export interface TTSResult {
