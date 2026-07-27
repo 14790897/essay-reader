@@ -17,7 +17,7 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: "python3 -m http.server 3000 --directory dist",
+    command: "npx serve dist -l 3000 -L",
     url: "http://localhost:3000",
     reuseExistingServer: true,
     timeout: 30000,
