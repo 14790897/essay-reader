@@ -74,7 +74,11 @@ test.describe("Essay Reader Web", () => {
    await apiKeyInput.waitFor({ state: "visible", timeout: 5000 });
 
    // Fill the API key
-    const testApiKey = process.env.DOUBAO_TEST_API_KEY || "test-key-not-set";
+    const testApiKey = process.env.DOUBAO_API_KEY;
+    if (!testApiKey) {
+      test.skip(true, 'DOUBAO_API_KEY not set — skipping REST API test');
+      return;
+    }
     await apiKeyInput.fill(testApiKey);
 
     // Verify the field has the value

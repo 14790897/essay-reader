@@ -4,7 +4,7 @@ import { useSpeech } from './src/hooks/useSpeech';
 import { useDoubaoTTS } from './src/hooks/useDoubaoTTS';
 import { useArticles } from './src/hooks/useArticles';
 import type { DoubaoConfig } from './src/services/doubaoTTS';
-import { synthesizeRest } from './src/services/doubaoRestTTS';
+import { synthesizeRestProgressive } from './src/services/doubaoRestTTS';
 import Reader from './src/components/Reader';
 import Player from './src/components/Player';
 import Settings, { type TTSProvider } from './src/components/Settings';
@@ -32,7 +32,12 @@ export default function App() {
 
  const progressRef = useRef(0);
   const webAudioRef = useRef<HTMLAudioElement | null>(null);
+  const sentenceBoundariesRef = useRef<number[]>([]);
+  const sentenceIdxWebRef = useRef(0);
+  const lastAudioRef = useRef('');
   const [webLoading, setWebLoading] = useState(false);
+  const [webIsSpeaking, setWebIsSpeaking] = useState(false);
+  const [webSentenceIndex, setWebSentenceIndex] = useState(0);
  const articles = useArticles();
 
   const onBoundary = useCallback((charIndex: number) => {
@@ -83,18 +88,56 @@ export default function App() {
      : articles.currentArticle.content;
     if (provider === 'doubao' && Platform.OS === 'web') {
       setWebLoading(true);
-      synthesizeRest(startFrom, doubaoSpeaker, doubaoConfig)
+      setWebIsSpeaking(true);
+      setWebSentenceIndex(0);
+      // Split text for sentence tracking
+      const regex = /[^。！？.!?\n]+[。！？.!?\n]*/g;
+      const sentences = startFrom.match(regex) || [startFrom];
+      sentenceBoundariesRef.current = [0];
+      let pos = 0;
+      for (let i = 0; i < sentences.length && pos < startFrom.length; i++) {
+        pos += sentences[i].length;
+        sentenceBoundariesRef.current.push(pos);
+      }
+      sentenceIdxWebRef.current = 0;
+      lastAudioRef.current = '';
+
+      synthesizeRestProgressive(startFrom, doubaoSpeaker, doubaoConfig, undefined, {
+        onSentenceStart: (_text, idx) => {
+          sentenceIdxWebRef.current = idx;
+          setWebSentenceIndex(idx);
+          onDoubaoSentenceStart(_text);
+        },
+        onSentenceEnd: (_text, idx) => {
+          if (articles.currentArticle) {
+            const charPos = sentenceBoundariesRef.current[idx] || articles.currentArticle.progress;
+            progressRef.current = charPos;
+          }
+        },
+        onAudioReady: (audioBase64) => {
+          lastAudioRef.current = audioBase64;
+          const audio = new Audio(`data:audio/mp3;base64,${audioBase64}`);
+          webAudioRef.current = audio;
+          setWebLoading(false);
+          audio.onended = () => { webAudioRef.current = null; setWebIsSpeaking(false); onDoubaoDone(); };
+          audio.play().catch(err => { console.error('Audio play error:', err); setWebLoading(false); });
+        },
+      })
         .then(result => {
           setWebLoading(false);
-          const audio = new Audio(`data:audio/mp3;base64,${result.audioBase64}`);
-          webAudioRef.current = audio;
-          audio.onended = () => { webAudioRef.current = null; onDoubaoDone(); };
-          audio.play().catch(err => { console.error('Audio play error:', err); setWebLoading(false); });
+          // If no incremental audio was played, play the complete result
+          if (lastAudioRef.current !== result.audioBase64) {
+            const audio = new Audio(`data:audio/mp3;base64,${result.audioBase64}`);
+            webAudioRef.current = audio;
+            audio.onended = () => { webAudioRef.current = null; setWebIsSpeaking(false); onDoubaoDone(); };
+            audio.play().catch(err => { console.error('Audio play error:', err); setWebLoading(false); });
+          }
         })
         .catch(err => {
           console.error('Doubao REST error:', err);
           Alert.alert('TTS Error', (err as Error).message);
           setWebLoading(false);
+          setWebIsSpeaking(false);
         });
     } else {
       activeTTS.speak(startFrom);
@@ -133,9 +176,12 @@ export default function App() {
     setShowEditor(false);
   }, [editingId, articles]);
 
-  const isSpeaking = provider === 'doubao' ? doubaoTTS.isSpeaking : systemSpeech.isSpeaking;
-  const isPaused = provider === 'doubao' ? doubaoTTS.isPaused : systemSpeech.isPaused;
-  const isLoading = provider === 'doubao' ? doubaoTTS.isLoading : false;
+  const isWebDoubao = provider === 'doubao' && Platform.OS === 'web';
+  const isSpeaking = isWebDoubao ? webIsSpeaking : (provider === 'doubao' ? doubaoTTS.isSpeaking : systemSpeech.isSpeaking);
+  const isPaused = isWebDoubao ? false : (provider === 'doubao' ? doubaoTTS.isPaused : systemSpeech.isPaused);
+  const isLoading = isWebDoubao ? webLoading : (provider === 'doubao' ? doubaoTTS.isLoading : false);
+  const webSentenceBoundaries = isWebDoubao ? sentenceBoundariesRef.current : (activeTTS.sentenceBoundaries ?? []);
+  const webCurrentSentenceIndex = isWebDoubao ? webSentenceIndex : (activeTTS.currentSentenceIndex ?? 0);
 
   return (
     <View style={styles.root}>
@@ -160,15 +206,15 @@ export default function App() {
       </View>
       <Reader
         content={articles.currentArticle?.content || ''}
-        currentSentenceIndex={activeTTS.currentSentenceIndex ?? 0}
-        sentenceBoundaries={activeTTS.sentenceBoundaries ?? []}
+        currentSentenceIndex={webCurrentSentenceIndex}
+        sentenceBoundaries={webSentenceBoundaries}
         fontSize={fontSize}
       />
       <Player
         isSpeaking={isSpeaking}
         isPaused={isPaused}
         hasContent={!!articles.currentArticle}
-        isLoading={provider === 'doubao' && Platform.OS === 'web' ? webLoading : isLoading}
+        isLoading={isWebDoubao ? webLoading : isLoading}
         onPlay={handlePlay}
         onPause={activeTTS.pause}
         onResume={activeTTS.resume}
