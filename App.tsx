@@ -4,6 +4,7 @@ import { useSpeech } from './src/hooks/useSpeech';
 import { useDoubaoTTS } from './src/hooks/useDoubaoTTS';
 import { useArticles } from './src/hooks/useArticles';
 import type { DoubaoConfig } from './src/services/doubaoTTS';
+import { synthesizeRest } from './src/services/doubaoRestTTS';
 import Reader from './src/components/Reader';
 import Player from './src/components/Player';
 import Settings, { type TTSProvider } from './src/components/Settings';
@@ -28,8 +29,10 @@ export default function App() {
   });
   const [doubaoSpeaker, setDoubaoSpeaker] = useState('zh_female_gaolengyujie_uranus_bigtts');
 
-  const progressRef = useRef(0);
-  const articles = useArticles();
+ const progressRef = useRef(0);
+  const webAudioRef = useRef<HTMLAudioElement | null>(null);
+  const [webLoading, setWebLoading] = useState(false);
+ const articles = useArticles();
 
   const onBoundary = useCallback((charIndex: number) => {
     progressRef.current = charIndex;
@@ -68,20 +71,38 @@ export default function App() {
 
   const activeTTS = provider === 'doubao' ? doubaoTTS : systemSpeech;
 
-  const handlePlay = useCallback(() => {
-    if (!articles.currentArticle) return;
-    if (provider === 'doubao' && !doubaoConfig.apiKey) {
-      Alert.alert('Doubao Config Missing', 'Please enter your API Key in Settings.');
-      return;
+ const handlePlay = useCallback(() => {
+   if (!articles.currentArticle) return;
+   if (provider === 'doubao' && !doubaoConfig.apiKey) {
+     Alert.alert('Doubao Config Missing', 'Please enter your API Key in Settings.');
+     return;
+   }
+   const startFrom = articles.currentArticle.progress > 0
+     ? articles.currentArticle.content.slice(articles.currentArticle.progress)
+     : articles.currentArticle.content;
+    if (provider === 'doubao' && Platform.OS === 'web') {
+      setWebLoading(true);
+      synthesizeRest(startFrom, doubaoSpeaker, doubaoConfig)
+        .then(result => {
+          setWebLoading(false);
+          const audio = new Audio(`data:audio/mp3;base64,${result.audioBase64}`);
+          webAudioRef.current = audio;
+          audio.onended = () => { webAudioRef.current = null; onDoubaoDone(); };
+          audio.play().catch(err => { console.error('Audio play error:', err); setWebLoading(false); });
+        })
+        .catch(err => {
+          console.error('Doubao REST error:', err);
+          Alert.alert('TTS Error', (err as Error).message);
+          setWebLoading(false);
+        });
+    } else {
+      activeTTS.speak(startFrom);
     }
-    const startFrom = articles.currentArticle.progress > 0
-      ? articles.currentArticle.content.slice(articles.currentArticle.progress)
-      : articles.currentArticle.content;
-    activeTTS.speak(startFrom);
-  }, [articles.currentArticle, activeTTS, provider, doubaoConfig]);
+  }, [articles.currentArticle, activeTTS, provider, doubaoConfig, doubaoSpeaker]);
 
-  const handleStop = useCallback(() => {
-    activeTTS.stop();
+ const handleStop = useCallback(() => {
+    if (webAudioRef.current) { webAudioRef.current.pause(); webAudioRef.current.currentTime = 0; webAudioRef.current = null; }
+   activeTTS.stop();
     if (articles.currentArticle) {
       articles.updateArticle(articles.currentArticle.id, { progress: progressRef.current });
     }
@@ -133,7 +154,7 @@ export default function App() {
       </View>
       <View style={styles.providerBadge}>
         <Text testID="provider-badge" style={styles.providerBadgeText}>
-          {provider === 'doubao' ? 'Doubao TTS \u2022 WebSocket' : 'System TTS'}
+          {provider === 'doubao' ? (Platform.OS === 'web' ? 'Doubao TTS \u2022 REST' : 'Doubao TTS \u2022 WebSocket') : 'System TTS'}
         </Text>
       </View>
       <Reader
@@ -146,7 +167,7 @@ export default function App() {
         isSpeaking={isSpeaking}
         isPaused={isPaused}
         hasContent={!!articles.currentArticle}
-        isLoading={isLoading}
+        isLoading={provider === 'doubao' && Platform.OS === 'web' ? webLoading : isLoading}
         onPlay={handlePlay}
         onPause={activeTTS.pause}
         onResume={activeTTS.resume}

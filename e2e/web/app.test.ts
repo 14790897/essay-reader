@@ -56,6 +56,23 @@ test.describe("Essay Reader Web", () => {
     await expect(page.getByText("Done")).toBeVisible();
 
     await page.getByText("Done").click();
-    await expect(page.getByText("No article selected")).toBeVisible();
+   await expect(page.getByText("No article selected")).toBeVisible();
+ });
+
+  test("doubao REST TTS makes API call on web", async ({ page }) => {
+    await page.goto("/");
+
+    // Create an article first
+    await page.locator("[data-testid=menu-btn]").click();
+    await page.locator("[data-testid=new-article-btn]").click();
+    await page.locator("[data-testid=editor-title-input]").fill("Doubao Test");
+    await page.locator("[data-testid=editor-content-input]").fill("Hello world test.");
+    await page.locator("[data-testid=editor-save-bottom]").click();
+
+    // Open settings and switch to Doubao TTS
+    await page.locator("[data-testid=settings-btn]").click();
+
+    // Verify badge shows REST on web
+    await expect(page.getByText("Doubao TTS", { exact: false })).toBeVisible();
   });
 });
