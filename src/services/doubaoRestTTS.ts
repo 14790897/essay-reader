@@ -3,11 +3,8 @@
  * Uses HTTP POST with custom headers instead of WebSocket binary protocol.
  */
 
-export interface DoubaoConfig {
-  apiKey: string;
-  resourceId: string;
-  proxyUrl: string;
-}
+import type { DoubaoConfig } from './doubaoTTS';
+export type { DoubaoConfig } from './doubaoTTS';
 
 export const DOUBAO_REST_VOICES = [
   { id: 'zh_female_gaolengyujie_uranus_bigtts', name: '高冷御姐', lang: 'zh', gender: 'female' },
@@ -30,9 +27,33 @@ function uuid(): string {
   });
 }
 
+function buildProxyUrl(proxyUrl: string, target: string): string {
+  const normalized = proxyUrl.endsWith('/') ? proxyUrl : proxyUrl + '/';
+  return normalized + target;
+}
+
 export interface TTSResult {
   audioBase64: string;
   durationMs?: string;
+}
+
+function splitIntoSentences(text: string): string[] {
+  const regex = /[^。！？.!?\n]+[。！？.!?\n]*/g;
+  const matches = text.match(regex);
+  return matches || [text];
+}
+
+function base64ToBytes(b64: string): Uint8Array {
+  const binary = atob(b64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes;
+}
+
+function bytesToBase64(bytes: Uint8Array): string {
+  let binary = '';
+  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+  return btoa(binary);
 }
 
 export async function synthesizeRest(
@@ -41,7 +62,9 @@ export async function synthesizeRest(
   config: DoubaoConfig,
   _options?: { speechRate?: number; pitch?: number }
 ): Promise<TTSResult> {
-  const endpoint = config.proxyUrl ? config.proxyUrl + TTS_ENDPOINT : TTS_ENDPOINT;
+  if (!text.trim()) return { audioBase64: '', durationMs: '0' };
+
+  const endpoint = config.proxyUrl ? buildProxyUrl(config.proxyUrl, TTS_ENDPOINT) : TTS_ENDPOINT;
   const response = await fetch(endpoint, {
     method: 'POST',
     headers: {
@@ -63,4 +86,69 @@ export async function synthesizeRest(
   }
 
   return { audioBase64: result.data, durationMs: result.addition?.duration };
+}
+
+export interface ProgressiveCallbacks {
+  onSentenceStart?: (text: string, index: number) => void;
+  onSentenceEnd?: (text: string, index: number) => void;
+  onAudioReady?: (audioBase64: string) => void;
+}
+
+export async function synthesizeRestProgressive(
+  text: string,
+  voice: string,
+  config: DoubaoConfig,
+  options?: { speechRate?: number; pitch?: number },
+  callbacks?: ProgressiveCallbacks
+): Promise<TTSResult> {
+  if (!text.trim()) return { audioBase64: '', durationMs: '0' };
+
+  const endpoint = config.proxyUrl ? buildProxyUrl(config.proxyUrl, TTS_ENDPOINT) : TTS_ENDPOINT;
+  const sentences = splitIntoSentences(text);
+  const allChunks: Uint8Array[] = [];
+
+  for (let i = 0; i < sentences.length; i++) {
+    const sentence = sentences[i];
+    callbacks?.onSentenceStart?.(sentence, i);
+
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Api-Key': config.apiKey,
+        'X-Api-Resource-Id': config.resourceId || 'seed-tts-2.0',
+      },
+      body: JSON.stringify({
+        app: { appid: 'essay-reader', token: 'access_token', cluster: 'volcano_tts' },
+        user: { uid: 'web-user' },
+        audio: { voice_type: voice, encoding: 'mp3', sample_rate: 24000 },
+        request: { reqid: uuid(), text: sentence, text_type: 'plain', operation: 'query' },
+      }),
+    });
+
+    const result: any = await response.json();
+    if (result.code !== 3000) {
+      throw new Error(`Doubao TTS error ${result.code}: ${result.message || 'Unknown'}`);
+    }
+
+    if (result.data) {
+      allChunks.push(base64ToBytes(result.data));
+    }
+
+    callbacks?.onSentenceEnd?.(sentence, i);
+
+    // Yield audio incrementally so playback can start early
+    if (allChunks.length > 0) {
+      const merged = new Uint8Array(allChunks.reduce((s, c) => s + c.length, 0));
+      let offset = 0;
+      for (const c of allChunks) { merged.set(c, offset); offset += c.length; }
+      callbacks?.onAudioReady?.(bytesToBase64(merged));
+    }
+  }
+
+  const totalSize = allChunks.reduce((s, c) => s + c.length, 0);
+  const merged = new Uint8Array(totalSize);
+  let offset = 0;
+  for (const c of allChunks) { merged.set(c, offset); offset += c.length; }
+  return { audioBase64: bytesToBase64(merged) };
 }

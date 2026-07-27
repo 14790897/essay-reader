@@ -84,7 +84,7 @@ export function useDoubaoTTS(options: UseDoubaoTTSOptions) {
             const audioBytes = clientRef.current.getAudioBytes();
             if (audioBytes && audioBytes.byteLength > 0) {
               try {
-                const cacheFile = new File(Paths.cache, "doubao_tts.mp3");
+                const cacheFile = new File(Paths.cache, `doubao_tts_${Date.now()}.mp3`);
                 cacheFile.write(audioBytes);
                 await playFromUri(cacheFile.uri);
               } catch (e) {
@@ -126,7 +126,7 @@ export function useDoubaoTTS(options: UseDoubaoTTSOptions) {
       playsInSilentMode: true,
       shouldPlayInBackground: true,
       interruptionModeAndroid: "duckOthers",
-    } as any);
+    });
 
     const player = createAudioPlayer({ uri });
     playerRef.current = player;
@@ -165,7 +165,7 @@ export function useDoubaoTTS(options: UseDoubaoTTSOptions) {
 
   const sentenceBoundaries = useMemo(() => {
     const text = textRef.current;
-    if (!text) return [];
+    if (!text || sentenceCountRef.current === 0) return [];
     const boundaries: number[] = [0];
     let pos = 0;
     for (let i = 0; i < sentenceCountRef.current && pos < text.length; i++) {
@@ -181,7 +181,7 @@ export function useDoubaoTTS(options: UseDoubaoTTSOptions) {
       boundaries.push(text.length);
     }
     return boundaries;
-  }, [isSpeaking]);
+  }, [isSpeaking, currentSentenceIndex]);
 
   return {
     isSpeaking,

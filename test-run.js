@@ -37,7 +37,8 @@ function parse(buf){
 }
 
 async function main(){
-  const AK='0348cc4e-6e60-4a0f-b1ce-142d00b98350';
+  const AK = process.env.DOUBAO_API_KEY;
+  if (!AK) { console.error('Set DOUBAO_API_KEY env var'); process.exit(1); }
   const SP='zh_female_gaolengyujie_uranus_bigtts';
   const TXT='你好，欢迎使用豆包语音合成服务。';
   const SID='bf5b5771-31cd-4f7a-b30c-f4ddcbf2f9da';

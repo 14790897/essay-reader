@@ -42,3 +42,9 @@ yarn-error.*
 
 # Detox
 artifacts/
+
+# temp test / debug files
+test-output.mp3
+test-req.json
+test-sync-*.mp3
+_patch.py
