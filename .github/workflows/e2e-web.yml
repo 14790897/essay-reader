@@ -32,10 +32,10 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install chromium --with-deps
 
-     - name: Run Playwright E2E tests
+      - name: Run Playwright E2E tests
         env:
-          DOUBAO_TEST_API_KEY: ${{ secrets.DOUBAO_API_KEY }}
-       run: npx playwright test --config=playwright.config.ts
+          DOUBAO_API_KEY: ${{ secrets.DOUBAO_API_KEY }}
+        run: npx playwright test --config=playwright.config.ts
 
       - name: Upload Playwright report
         if: always()
