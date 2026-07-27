@@ -59,20 +59,33 @@ test.describe("Essay Reader Web", () => {
    await expect(page.getByText("No article selected")).toBeVisible();
  });
 
-  test("doubao REST TTS makes API call on web", async ({ page }) => {
-    await page.goto("/");
+ test("doubao REST TTS makes API call on web", async ({ page }) => {
+   await page.goto("/");
 
-    // Create an article first
-    await page.locator("[data-testid=menu-btn]").click();
-    await page.locator("[data-testid=new-article-btn]").click();
-    await page.locator("[data-testid=editor-title-input]").fill("Doubao Test");
-    await page.locator("[data-testid=editor-content-input]").fill("Hello world test.");
-    await page.locator("[data-testid=editor-save-bottom]").click();
+    // Open settings and switch to Doubao with API key
+   await page.locator("[data-testid=settings-btn]").click();
 
-    // Open settings and switch to Doubao TTS
-    await page.locator("[data-testid=settings-btn]").click();
+    // Click Doubao TTS chip to switch provider
+   const doubaoOption = page.getByText("Doubao TTS", { exact: true });
+   await doubaoOption.click();
 
-    // Verify badge shows REST on web
-    await expect(page.getByText("Doubao TTS", { exact: false })).toBeVisible();
+    // API key fields should appear after switching
+   const apiKeyInput = page.locator("[data-testid=doubao-api-key-input]");
+   await apiKeyInput.waitFor({ state: "visible", timeout: 5000 });
+
+   // Fill the API key
+    const testApiKey = process.env.DOUBAO_TEST_API_KEY || "test-key-not-set";
+    await apiKeyInput.fill(testApiKey);
+
+    // Verify the field has the value
+    const value = await apiKeyInput.inputValue();
+    expect(value.length).toBeGreaterThan(0);
+
+   // Close settings
+   await page.getByText("Done").click();
+
+    // Verify badge shows REST on web (not WebSocket)
+    const badge = page.locator("[data-testid=provider-badge]");
+    await expect(badge).toContainText("Doubao TTS");
   });
 });

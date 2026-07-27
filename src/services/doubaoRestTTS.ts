@@ -19,7 +19,20 @@ export const DOUBAO_REST_VOICES = [
   { id: 'zh_female_tianmei_bigtts', name: '甜美女生', lang: 'zh', gender: 'female' },
 ];
 
+// Direct endpoint (used by native or through proxy)
 const TTS_ENDPOINT = 'https://openspeech.bytedance.com/api/v1/tts';
+// Proxy: Vercel serverless (production) or local (dev)
+const PROXY_ENDPOINT = '/api/doubao-proxy';
+const LOCAL_PROXY = 'http://localhost:3001';
+
+function getEndpoint(): string {
+  if (typeof window !== 'undefined') {
+    // On web: use same-origin proxy (Vercel) or local proxy for dev
+    if (window.location.hostname === 'localhost') return LOCAL_PROXY;
+    return PROXY_ENDPOINT;
+  }
+  return TTS_ENDPOINT;
+}
 
 function uuid(): string {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
@@ -39,7 +52,8 @@ export async function synthesizeRest(
   config: DoubaoConfig,
   _options?: { speechRate?: number; pitch?: number }
 ): Promise<TTSResult> {
-  const response = await fetch(TTS_ENDPOINT, {
+  const endpoint = getEndpoint();
+  const response = await fetch(endpoint, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
