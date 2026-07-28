@@ -109,8 +109,7 @@ jobs:
           name: logcat
           path: logcat.txt
           retention-days: 7
-
-  e2e-test:
+ e2e-test:
     needs: build-android
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -242,3 +241,5 @@ jobs:
         with:
           name: test-report
           path: android/app/build/reports/androidTests/
+
+gin/main
