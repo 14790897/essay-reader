@@ -233,7 +233,7 @@ jobs:
           disk-size: 6000M
           heap-size: 600M
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
-          script: cd android && adb wait-for-device && ./gradlew connectedDebugAndroidTest --build-cache
+          script: cd android && adb wait-for-device && ./gradlew connectedDebugAndroidTest --build-cache --daemon
 
       - name: Upload test report
         uses: actions/upload-artifact@v4
