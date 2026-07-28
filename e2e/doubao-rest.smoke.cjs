@@ -1,12 +1,13 @@
 /**
- * CI smoke test for Doubao TTS REST API.
+ * CI smoke test for Doubao TTS V3 HTTP Unidirectional API.
  * DOUBAO_API_KEY must be set via GitHub Secrets.
  *
- * Pass: code=3000 and valid MP3 base64 data
- * Warn (exit 0): key lacks v1 REST access (code=3001) — needs resource grant in Volcano Console
+ * Pass: code=0 and valid MP3 base64 data
  * Fail: network error or unexpected response
+ *
+ * Docs: https://docs.volcengine.com/docs/6561/2528925?lang=zh
  */
-const TTS_ENDPOINT = 'https://openspeech.bytedance.com/api/v1/tts';
+const TTS_ENDPOINT = 'https://openspeech.bytedance.com/api/v3/tts/unidirectional';
 
 async function main() {
   const apiKey = process.env.DOUBAO_API_KEY;
@@ -16,13 +17,17 @@ async function main() {
   }
 
   const body = JSON.stringify({
-    app: { appid: 'essay-reader-ci', token: 'access_token', cluster: 'volcano_tts' },
-    user: { uid: 'ci-test' },
-    audio: { voice_type: 'zh_female_qingxin_bigtts', encoding: 'mp3', sample_rate: 24000 },
-    request: { reqid: 'ci-smoke-' + Date.now(), text: '你好，这是一个测试。', text_type: 'plain', operation: 'query' },
+    req_params: {
+      text: '你好，这是一个测试。',
+      speaker: 'zh_female_qingxin_bigtts',
+      audio_params: {
+        format: 'mp3',
+        sample_rate: 24000,
+      },
+    },
   });
 
-  console.log('[CI] Calling Doubao TTS REST API...');
+  console.log('[CI] Calling Doubao TTS V3 Unidirectional API...');
   let response;
   try {
     response = await fetch(TTS_ENDPOINT, {
@@ -31,6 +36,7 @@ async function main() {
         'Content-Type': 'application/json',
         'X-Api-Key': apiKey,
         'X-Api-Resource-Id': 'seed-tts-2.0',
+        'X-Api-Request-Id': 'ci-smoke-' + Date.now(),
       },
       body,
     });
@@ -39,43 +45,82 @@ async function main() {
     process.exit(1);
   }
 
-  const result = await response.json().catch(() => null);
-  if (!result) {
-    console.error('FAIL: response is not valid JSON');
+  if (!response.ok) {
+    const text = await response.text().catch(() => '');
+    console.error(`FAIL: HTTP ${response.status}: ${text}`);
     process.exit(1);
   }
 
-  console.log(`[CI] Response code: ${result.code}, message: ${result.message}`);
-
-  // 3001 = key doesn't have v1 REST access — not a code bug, just config
-  if (result.code === 3001) {
-    console.log('PASS (warn): API reachable but key lacks v1 REST access. Grant in Volcano Console → https://console.volcengine.com/speech/service/list');
-    process.exit(0);
-  }
-
-  if (result.code !== 3000) {
-    console.error(`FAIL: unexpected code ${result.code}: ${result.message}`);
+  // V3 uses chunked transfer encoding — read the stream
+  const reader = response.body?.getReader();
+  if (!reader) {
+    console.error('FAIL: response body is not a readable stream');
     process.exit(1);
   }
 
-  if (!result.data || typeof result.data !== 'string') {
-    console.error('FAIL: response.data is missing or not a string');
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let audioChunks = [];
+  let allChunks = [];
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed) continue;
+        try {
+          const chunk = JSON.parse(trimmed);
+          allChunks.push(chunk);
+          if (chunk.code !== 0) {
+            console.error(`FAIL: chunk error code ${chunk.code}: ${chunk.message}`);
+            process.exit(1);
+          }
+          if (chunk.data) {
+            audioChunks.push(chunk.data);
+          }
+        } catch {
+          // skip non-JSON
+        }
+      }
+    }
+  } catch (err) {
+    console.error(`FAIL: stream read error — ${err.message}`);
     process.exit(1);
   }
 
-  const bytes = Buffer.from(result.data, 'base64');
+  if (audioChunks.length === 0) {
+    console.error('FAIL: no audio chunks received');
+    console.error('All chunks received:', JSON.stringify(allChunks).substring(0, 500));
+    process.exit(1);
+  }
+
+  // Validate first chunk's audio is valid MP3
+  const firstAudio = audioChunks[0];
+  const bytes = Buffer.from(firstAudio, 'base64');
   if (bytes.length < 4) {
     console.error(`FAIL: decoded audio too short (${bytes.length} bytes)`);
     process.exit(1);
   }
 
+  // Check MP3 sync frame header: 0xFF 0xE0-0xFF or ID3 tag "ID3"
   const isMp3 = bytes[0] === 0xFF && (bytes[1] & 0xE0) === 0xE0;
-  if (!isMp3) {
+  const isId3 = bytes[0] === 0x49 && bytes[1] === 0x44 && bytes[2] === 0x33; // 'ID3'
+  if (!isMp3 && !isId3) {
     console.error(`FAIL: not valid MP3 (first bytes: ${bytes.subarray(0, 4).toString('hex')})`);
     process.exit(1);
   }
 
-  console.log(`PASS: Valid MP3, ${bytes.length} bytes, duration ${result.addition?.duration || '?'}ms`);
+  const totalBytes = audioChunks.reduce((s, c) => s + Buffer.from(c, 'base64').length, 0);
+  const totalWords = allChunks.reduce((s, c) => s + (c.usage?.text_words || 0), 0);
+
+  console.log(`PASS: ${audioChunks.length} chunk(s), ${totalBytes} bytes total, ${totalWords} text words`);
   process.exit(0);
 }
 

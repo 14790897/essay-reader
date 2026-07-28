@@ -1,30 +1,26 @@
 // Local CORS proxy for Doubao TTS (dev use)
 // Usage: node proxy-server.mjs
-// Supports two modes:
-//   POST /                          → forwards to hardcoded TTS_ENDPOINT
-//   POST /<any-url-encoded-target>  → forwards to the target URL
-//   OPTIONS (any path)              → returns CORS preflight headers
+// Supports streaming: forwards chunked responses from V3 unidirectional endpoint.
+//   POST /                             → forwards to hardcoded TTS_ENDPOINT (V3)
+//   POST /<any-url-encoded-target>     → forwards to the target URL
+//   OPTIONS (any path)                 → returns CORS preflight headers
 
 import http from 'http';
 import https from 'https';
 
 const PORT = 3001;
-const TTS_ENDPOINT = 'https://openspeech.bytedance.com/api/v1/tts';
+const TTS_ENDPOINT = 'https://openspeech.bytedance.com/api/v3/tts/unidirectional';
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, X-Api-Key, X-Api-Resource-Id',
+  'Access-Control-Allow-Headers': 'Content-Type, X-Api-Key, X-Api-Resource-Id, X-Api-Request-Id',
 };
 
 function resolveTarget(pathname) {
-  // pathname is something like "/https://openspeech.bytedance.com/api/v1/tts"
   const path = pathname.replace(/^\/+/, '');
   if (!path || path === '/') return TTS_ENDPOINT;
 
-  // Reconstruct the full URL from path (handle the "http:/" → "http://" issue)
-  // Path will look like: "https:/openspeech.bytedance.com/api/v1/tts"
-  // because slashes get collapsed. Reconstruct.
   const match = path.match(/^https?:?\/?(.*)/i);
   if (match) {
     const protocol = path.startsWith('https') ? 'https' : 'http';
@@ -52,17 +48,53 @@ http.createServer(async (req, res) => {
           'Content-Type': 'application/json',
           'X-Api-Key': req.headers['x-api-key'] || '',
           'X-Api-Resource-Id': req.headers['x-api-resource-id'] || 'seed-tts-2.0',
+          'X-Api-Request-Id': req.headers['x-api-request-id'] || `proxy-${Date.now()}`,
         },
         body,
       });
-      const data = await upstream.json();
-      res.writeHead(upstream.status, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(data));
+
+      if (!upstream.ok) {
+        res.writeHead(upstream.status, { 'Content-Type': 'application/json' });
+        const text = await upstream.text().catch(() => '');
+        res.end(JSON.stringify({ error: `Upstream ${upstream.status}: ${text}` }));
+        return;
+      }
+
+      // Stream the response — V3 unidirectional uses chunked transfer encoding
+      res.writeHead(upstream.status, {
+        'Content-Type': 'application/json',
+        'Transfer-Encoding': 'chunked',
+      });
+
+      const reader = upstream.body?.getReader();
+      if (!reader) {
+        res.end();
+        return;
+      }
+
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          // Write chunk length in hex + CRLF, then data, then CRLF
+          const hexLen = value.length.toString(16);
+          res.write(hexLen + '\r\n');
+          res.write(Buffer.from(value));
+          res.write('\r\n');
+        }
+        res.write('0\r\n\r\n'); // terminal chunk
+        res.end();
+      } catch (err) {
+        console.error('[proxy] streaming error:', err.message);
+        if (!res.writableEnded) res.end();
+      }
     } catch (err) {
-      res.writeHead(502);
-      res.end(JSON.stringify({ error: 'Upstream error: ' + err.message }));
+      if (!res.writableEnded) {
+        res.writeHead(502);
+        res.end(JSON.stringify({ error: 'Upstream error: ' + err.message }));
+      }
     }
   });
 }).listen(PORT, () => console.log(`Doubao proxy on http://localhost:${PORT}
   Direct:   POST http://localhost:${PORT}/
-  Prefixed: POST http://localhost:${PORT}/https://openspeech.bytedance.com/api/v1/tts`));
+  Prefixed: POST http://localhost:${PORT}/https://openspeech.bytedance.com/api/v3/tts/unidirectional`));
