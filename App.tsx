@@ -146,6 +146,9 @@ export default function App() {
 
  const handleStop = useCallback(() => {
     if (webAudioRef.current) { webAudioRef.current.pause(); webAudioRef.current.currentTime = 0; webAudioRef.current = null; }
+    setWebIsSpeaking(false);
+    setWebLoading(false);
+    setWebSentenceIndex(0);
    activeTTS.stop();
     if (articles.currentArticle) {
       articles.updateArticle(articles.currentArticle.id, { progress: progressRef.current });
