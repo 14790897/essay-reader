@@ -1,0 +1,245 @@
+name: Android Build
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - run: npm ci
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: true
+
+      - name: Prebuild Android
+        run: npx expo prebuild --platform android
+      - name: Disable new architecture
+        run: sed -i 's/newArchEnabled=true/newArchEnabled=false/' android/gradle.properties
+
+      - name: Prepare Android signing
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "No signing key configured, building unsigned APK"
+          else
+            echo "$KEYSTORE_BASE64" | base64 -d > android/app/release.keystore
+            echo "RELEASE_STORE_FILE=release.keystore" >> android/gradle.properties
+            echo "RELEASE_STORE_PASSWORD=${{ secrets.KEYSTORE_PASSWORD }}" >> android/gradle.properties
+            echo "RELEASE_KEY_ALIAS=${{ secrets.KEYSTORE_ALIAS }}" >> android/gradle.properties
+            echo "RELEASE_KEY_PASSWORD=${{ secrets.KEYSTORE_PASSWORD }}" >> android/gradle.properties
+          fi
+
+      - name: Build APK
+        working-directory: android
+        run: ./gradlew assembleRelease --build-cache
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: essay-reader-apk
+          path: android/app/build/outputs/apk/release/app-release.apk
+          retention-days: 30
+
+  smoke-test:
+    needs: build-android
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+    steps:
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          ls -la /dev/kvm || true
+
+      - name: Download APK
+        uses: actions/download-artifact@v4
+        with:
+          name: essay-reader-apk
+
+      - name: Install and launch on emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          arch: x86_64
+          disable-animations: true
+          emulator-options: -no-snapshot -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -netdelay none -netspeed full
+          script: |
+            adb wait-for-device
+            sleep 5
+            adb logcat -c
+            adb install -t app-release.apk
+            adb shell am start -n com.essayreader.app/.MainActivity
+            sleep 25
+            FOREGROUND=$(adb shell dumpsys activity activities | grep mResumedActivity || adb shell dumpsys window | grep mCurrentFocus)
+            echo "Foreground: $FOREGROUND"
+            echo $FOREGROUND | grep -q com.essayreader || { echo '=== APP NOT IN FOREGROUND ==='; echo '=== Package check ==='; adb shell pm list packages | grep essay || true; echo '=== Logcat errors ==='; adb logcat -d | grep -E '(AndroidRuntime|ReactNative|FATAL|System.err)' | tail -60; }
+            adb logcat -d > logcat.txt
+            adb shell screencap -p /sdcard/screenshot.png
+            adb pull /sdcard/screenshot.png .
+
+      - name: Upload screenshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-test-screenshot
+          path: screenshot.png
+          retention-days: 7
+
+      - name: Upload logcat
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: logcat
+          path: logcat.txt
+          retention-days: 7
+ e2e-test:
+    needs: build-android
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download APK
+        uses: actions/download-artifact@v4
+        with:
+          name: essay-reader-apk
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          ls -la /dev/kvm || true
+
+      - name: Run E2E smoke test on emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          arch: x86_64
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -netdelay none -netspeed full
+          script: |
+            adb wait-for-device
+            sleep 5
+            adb logcat -c
+            adb install -t app-release.apk
+            adb shell am start -n com.essayreader.app/.MainActivity
+            sleep 25
+            FOREGROUND=$(adb shell dumpsys activity activities | grep mResumedActivity || adb shell dumpsys window | grep mCurrentFocus)
+            echo "Foreground: $FOREGROUND"
+            echo $FOREGROUND | grep -q com.essayreader || { echo '=== APP CRASHED ==='; echo '=== Package check ==='; adb shell pm list packages | grep essay || true; echo '=== Logcat errors ==='; adb logcat -d | grep -E '(AndroidRuntime|ReactNative|FATAL|System.err)' | tail -60; }
+            adb shell uiautomator dump /sdcard/screen.xml
+            adb pull /sdcard/screen.xml /tmp/screen.xml
+            grep -q 'header-title' /tmp/screen.xml && echo 'UI: header-title found' || echo 'UI: MISSING header-title'
+            grep -q 'player-play' /tmp/screen.xml && echo 'UI: player-play found' || echo 'UI: MISSING player-play'
+            adb logcat -d > logcat.txt
+            adb shell screencap -p /sdcard/screenshot.png
+            adb pull /sdcard/screenshot.png .
+
+      - name: Upload screenshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-screenshot
+          path: screenshot.png
+          retention-days: 7
+
+      - name: Upload logcat
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e2e-logcat
+          path: logcat.txt
+          retention-days: 7
+
+  instrumented-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - run: npm ci
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: true
+
+      - name: Prebuild Android
+        run: npx expo prebuild --platform android
+      - name: Disable new architecture
+        run: sed -i 's/newArchEnabled=true/newArchEnabled=false/' android/gradle.properties
+
+      - name: Setup instrumented tests
+        run: |
+          mkdir -p android/app/src/androidTest/java/com/essayreader/app
+          cp e2e/android/BasicTest.kt android/app/src/androidTest/java/com/essayreader/app/
+          echo '
+
+          // ---- instrumented test config (auto-generated by CI) ----
+          android {
+              defaultConfig {
+                  testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+              }
+          }
+
+          dependencies {
+              androidTestImplementation("androidx.test.ext:junit:1.2.1")
+              androidTestImplementation("androidx.test:core:1.6.1")
+              androidTestImplementation("androidx.test:runner:1.6.2")
+              androidTestImplementation("androidx.test:rules:1.6.1")
+          }
+          ' >> android/app/build.gradle
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Run instrumented tests
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          arch: x86_64
+          disable-animations: true
+          disk-size: 6000M
+          heap-size: 600M
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+          script: cd android && adb wait-for-device && ./gradlew connectedDebugAndroidTest --build-cache
+
+      - name: Upload test report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-report
+          path: android/app/build/reports/androidTests/
+
+gin/main
